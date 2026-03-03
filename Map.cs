@@ -43,52 +43,52 @@ public class Map
         var p = state.Player;
         for (int y = 0; y < _height; y++)
         {
+            string mapLine = "";
             for (int x = 0; x < _width; x++)
             {
-                if (x == p.X && y == p.Y) Console.Write('¶');
+                if (x == p.X && y == p.Y)
+                    mapLine += "¶";
                 else
                 {
                     var itemsHere = GetItemsAt(x, y);
-                    if (itemsHere.Count != 0) Console.Write(itemsHere.First().Symbol);
-                    else Console.Write(_grid[y, x]);
+                    if (itemsHere.Count != 0) mapLine += itemsHere.First().Symbol;
+                    else mapLine += _grid[y, x];
                 }
             }
-            Console.Write("   ");
-            if (y == 0) Console.Write($"--- STATISTICS ---");
-            else if (y == 1) Console.Write($"HP: {p.Health} | Strength: {p.Strength} | Dexterity: {p.Dexterity}");
-            else if (y == 2) Console.Write($"Wisdom: {p.Wisdom} | Aggression: {p.Aggression} | Luck: {p.Luck}");
-            else if (y == 3) Console.Write($"Gold: {p.Gold} | Coins: {p.Coins}");
-            else if (y == 5) Console.Write($"--- HANDS ---");
-            else if (y == 6) Console.Write($"Left: {(p.LeftHand != null ? p.LeftHand.Name : "Empty")}");
-            else if (y == 7) Console.Write($"Right: {(p.RightHand != null ? p.RightHand.Name : "Empty")}");
-            else if (y == 9) Console.Write($"--- INVENTORY (press a number to equip) ---");
-            else if (y >= 10 && y < 10 + p.Backpack.Count && y < 19)
-            {
-                int index = y - 10;
-                Console.Write($"[{index}] {p.Backpack[index].Name}");
-            }
-            Console.Write(new string(' ', 20));
-            Console.WriteLine();
+            string statsLine = GetStatsLine(y, p);
+            string fullLine = $"{mapLine}   {statsLine}";
+            Console.WriteLine(fullLine.PadRight(100));
         }
-
+        Console.WriteLine(new string('-', 80));
         var standingOn = GetItemsAt(p.X, p.Y);
-        if (standingOn.Count != 0)
-        {
-            string message = $"Standing on: {string.Join(", ", standingOn.Select(static i => i.Name))} (Press 'E' to pick up)";
-            Console.WriteLine($"\n{message.PadRight(200)}");
-            p.LogMessage = "";
-        }
-        else
-            Console.WriteLine($"\n{new string(' ', 200)}");
+        string groundInfo = standingOn.Count > 0
+            ? $"Ground: {standingOn.First().Name} (Press E)"
+            : "Ground: Empty";
 
-        string fullLog = $"Log: {state.Log} {p.LogMessage}";
-        Console.WriteLine(fullLog.PadRight(120));
-        p.LogMessage = "";
-        Console.WriteLine(new string('-', 60));
-        Console.WriteLine(" CONTROLS:");
-        Console.WriteLine(" [W, A, S, D] Move     | [E] Pick Up Item");
-        Console.WriteLine(" [0-9] Equip Item      | [X] Drop Mode (Throw item)");
-        Console.WriteLine(" [ESC] Exit Game");
-        Console.WriteLine(new string('-', 60));
+        Console.WriteLine(groundInfo.PadRight(100));
+
+        string logInfo = $"Log: {state.Log} {p.LogMessage}";
+        Console.WriteLine(logInfo.PadRight(100));
+        p.LogMessage = ""; // Очищаем сообщение после вывода
+
+        Console.WriteLine("Controls: [WASD] Move | [E] Pick Up | [X] Drop | [0-9] Equip".PadRight(100));
+    }
+
+    private string GetStatsLine(int y, Player p)
+    {
+        return y switch
+        {
+            0 => "--- STATISTICS ---",
+            1 => $"HP: {p.Health} | STR: {p.Strength} | DEX: {p.Dexterity}",
+            2 => $"WIS: {p.Wisdom} | AGR: {p.Aggression} | LUCK: {p.Luck}",
+            3 => $"Gold: {p.Gold} | Coins: {p.Coins}",
+            5 => "--- HANDS ---",
+            6 => $"Left: {(p.LeftHand?.Name ?? "Empty")}",
+            7 => $"Right: {(p.RightHand?.Name ?? "Empty")}",
+            9 => "--- INVENTORY ---",
+            _ => (y >= 10 && y < 10 + p.Backpack.Count)
+                 ? $"[{y - 10}] {p.Backpack[y - 10].Name}"
+                 : ""
+        };
     }
 }

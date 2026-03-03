@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 
 namespace AlchemyRPG;
 
@@ -11,6 +10,9 @@ public class Game
 
     public Game()
     {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.CursorVisible = false;
+
         _state = new GameState
         {
             Player = new Player(1, 1),
@@ -20,20 +22,19 @@ public class Game
 
     public void Run()
     {
-        Console.CursorVisible = false;
-        Console.Clear();
+        Console.Clear(); 
 
         while (_isRunning)
         {
             Console.SetCursorPosition(0, 0);
+
             if (_isDropMode)
-                _state.Log = "DROP MODE: Press a number (0-9) to drop item, or ESC to cancel.";
+                _state.Log = "DROP MODE: [0-9] to drop, ESC to cancel.";
 
             _state.Map.Draw(_state);
             HandleInput();
         }
     }
-
     private void HandleInput()
     {
         var keyInfo = Console.ReadKey(true);
@@ -45,7 +46,6 @@ public class Game
             if (key >= ConsoleKey.D0 && key <= ConsoleKey.D9)
             {
                 int index = key - ConsoleKey.D0;
-
                 var itemsOnFloor = _state.Map.GetItemsAt(_state.Player.X, _state.Player.Y);
                 if (itemsOnFloor.Count != 0)
                 {
@@ -53,13 +53,10 @@ public class Game
                     _isDropMode = false;
                     return;
                 }
-
                 var droppedItem = _state.Player.DropItem(index);
                 if (droppedItem != null)
-                {
                     _state.Map.PlaceItemAt(_state.Player.X, _state.Player.Y, droppedItem);
 
-                }
                 _state.Log = "";
                 _isDropMode = false;
             }
@@ -96,7 +93,7 @@ public class Game
                 _state.Log = "Cancelled equipping.";
             }
             return;
-        }
+        } 
 
         switch (key)
         {
@@ -104,16 +101,11 @@ public class Game
             case ConsoleKey.S: dy = 1; break;
             case ConsoleKey.A: dx = -1; break;
             case ConsoleKey.D: dx = 1; break;
-
-            case ConsoleKey.X:
-                _isDropMode = true;
-                break;
-
+            case ConsoleKey.X: _isDropMode = true; break;
             case ConsoleKey.E:
                 var items = _state.Map.GetItemsAt(_state.Player.X, _state.Player.Y);
                 if (items.Count != 0) items.First().OnPickUp(_state);
                 break;
-
             case ConsoleKey.Escape: _isRunning = false; break;
         }
 
