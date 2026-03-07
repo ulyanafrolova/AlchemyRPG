@@ -23,9 +23,9 @@ public class Map
         AddItem(6, 5, new TwoHandedAxe());
         AddItem(8, 8, new Sword());
 
-        AddItem(10, 10, new Junk("Skull"));
-        AddItem(12, 4, new Junk("Old Bone"));
-        AddItem(15, 15, new Junk("Broken Glass"));
+        AddItem(10, 10, new Skull());
+        AddItem(12, 4, new OldBone());
+        AddItem(15, 15, new BrokenGlass());
     }
     public void PlaceItemAt(int x, int y, IItem item)
     {
@@ -69,12 +69,12 @@ public class Map
 
         string logInfo = $"Log: {state.Log} {p.LogMessage}";
         Console.WriteLine(logInfo.PadRight(100));
-        p.LogMessage = ""; // Очищаем сообщение после вывода
+        p.LogMessage = ""; 
 
         Console.WriteLine("Controls: [WASD] Move | [E] Pick Up | [X] Drop | [0-9] Equip".PadRight(100));
     }
 
-    private string GetStatsLine(int y, Player p)
+    private static string GetStatsLine(int y, Player p)
     {
         return y switch
         {
