@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AlchemyRPG")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bc9ee11f8f2ea40842cf7b4fee1ba3da8e17a9a8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5190816d2dba24483cdb44ec8fc26ab99794d3e9")]
 [assembly: System.Reflection.AssemblyProductAttribute("AlchemyRPG")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AlchemyRPG")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
