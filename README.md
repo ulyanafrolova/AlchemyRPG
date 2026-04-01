@@ -20,13 +20,18 @@ classDiagram
         +int Width
         +int Height
         +char[,] Grid
-        -List _items
+        -List~(int, int, IItem)~ _items
         +bool IsWalkable(int x, int y)
         +List~IItem~ GetItemsAt(int x, int y)
         +void PlaceItemAt(int x, int y, IItem item)
         +void AddItem(int x, int y, IItem item)
         +void RemoveItem(int x, int y, IItem item)
         +void Draw(GameState state)
+    }
+
+    class MapExtensions {
+        <<static>>
+        +void SpawnItemRandomly(this Map map, Random rand, IItem item)
     }
 
     class IDungeonBuilder {
@@ -42,9 +47,9 @@ classDiagram
     class DungeonBuilder {
         -Map _map
         -Random _rand
-        -HashSet~string~ _controls
+        -HashSet~string~ _instructions
         -List~string~ _tutorialText
-        -AddBorders(int width, int height)
+        -AddBorders()
     }
 
     class DungeonDirector {
@@ -75,19 +80,21 @@ classDiagram
 
     class JunkItemsModifier {
         -int _count
-        -SpawnItemRandomly(Map map, Random rand, IItem item)
         +Apply(Map map, HashSet~string~ controls, List~string~ tutorialText, Random rand)
     }
 
     class WeaponsModifier {
         -int _count
-        -SpawnItemRandomly(Map map, Random rand, IItem item)
+        +Apply(Map map, HashSet~string~ controls, List~string~ tutorialText, Random rand)
+    }
+
+    class EnemiesModifier {
+        -int _count
         +Apply(Map map, HashSet~string~ controls, List~string~ tutorialText, Random rand)
     }
 
     class Labyrinth {
         <<static>>
-        -Random Rand
         +Generate(int width, int height) char[,]
     }
 
@@ -144,6 +151,8 @@ classDiagram
         +int Luck
         +int Aggression
         +int Wisdom
+        +int Coins
+        +int Gold
         +string LogMessage
         +List~IInventoryItem~ Backpack
         +IInventoryItem LeftHand
@@ -154,6 +163,15 @@ classDiagram
         +void EquipLeftHand(IInventoryItem item)
         +void EquipRightHand(IInventoryItem item)
         +void EquipTwoHanded(IInventoryItem item)
+    }
+
+    class Enemy {
+        +string Name
+        +char Symbol
+        +int Health
+        +int AttackDamage
+        +int Armor
+        +void OnPickUp(GameState state)
     }
 
     class HandSide {
@@ -200,6 +218,14 @@ classDiagram
         +VisitLightWeapon(IWeapon weapon)
         +VisitMagicWeapon(IWeapon weapon)
         +VisitNonWeapon()
+    }
+
+    class AttackVisitor {
+        <<abstract>>
+        #int CalculatedDamage
+        #int CalculatedDefense
+        #Player _player
+        +AttackVisitor(Player player)
     }
 
     class BaseWeapon {
@@ -257,18 +283,20 @@ classDiagram
     class BrokenGlass
 
     class Gold {
-        +int Amount
+        -int _amount
+        +string Name
+        +char Symbol
         +void OnPickUp(GameState state)
     }
 
     class Coin {
-        +int Amount
+        -int _amount
+        +string Name
+        +char Symbol
         +void OnPickUp(GameState state)
     }
 
     class NormalAttack {
-        +CalculatedDamage
-        +CalculatedDefense
         +VisitHeavyWeapon(IWeapon weapon)
         +VisitLightWeapon(IWeapon weapon)
         +VisitMagicWeapon(IWeapon weapon)
@@ -276,8 +304,6 @@ classDiagram
     }
 
     class StealthAttack {
-        +CalculatedDamage
-        +CalculatedDefense
         +VisitHeavyWeapon(IWeapon weapon)
         +VisitLightWeapon(IWeapon weapon)
         +VisitMagicWeapon(IWeapon weapon)
@@ -285,49 +311,54 @@ classDiagram
     }
 
     class MagicAttack {
-        +CalculatedDamage
-        +CalculatedDefense
         +VisitHeavyWeapon(IWeapon weapon)
         +VisitLightWeapon(IWeapon weapon)
         +VisitMagicWeapon(IWeapon weapon)
         +VisitNonWeapon()
     }
 
-    IDungeonBuilder <|.. DungeonBuilder : implements
-    DungeonDirector o-- IDungeonBuilder : uses
-    IDungeonModifier <|.. CorridorsModifier : implements
-    IDungeonModifier <|.. RoomsModifier : implements
-    IDungeonModifier <|.. CentralRoomModifier : implements
-    IDungeonModifier <|.. JunkItemsModifier : implements
-    IDungeonModifier <|.. WeaponsModifier : implements
-    DungeonBuilder ..> IDungeonModifier : uses
-    CorridorsModifier ..> Labyrinth : uses
-    DungeonBuilder ..> Map : creates
-    ICommand <|.. MoveCommand : implements
-    ICommand <|.. PickUpCommand : implements
-    ICommand <|.. DropCommand : implements
-    ICommand <|.. EquipCommand : implements
-    ICommand <|.. HelpCommand : implements
-    ICommand <|.. AttackCommand : implements
-    InputHandler *-- ICommand : owns
-    Game *-- InputHandler : owns
+    IDungeonBuilder <|.. DungeonBuilder
+    DungeonDirector o-- IDungeonBuilder
+    IDungeonModifier <|.. CorridorsModifier
+    IDungeonModifier <|.. RoomsModifier
+    IDungeonModifier <|.. CentralRoomModifier
+    IDungeonModifier <|.. JunkItemsModifier
+    IDungeonModifier <|.. WeaponsModifier
+    IDungeonModifier <|.. EnemiesModifier
+    DungeonBuilder ..> IDungeonModifier
+    CorridorsModifier ..> Labyrinth
+    DungeonBuilder ..> Map
+    MapExtensions ..> Map
+    ICommand <|.. MoveCommand
+    ICommand <|.. PickUpCommand
+    ICommand <|.. DropCommand
+    ICommand <|.. EquipCommand
+    ICommand <|.. HelpCommand
+    ICommand <|.. AttackCommand
+    InputHandler *-- ICommand
+    Game *-- InputHandler
     Game --> GameState
     GameState --> Player
     GameState --> Map
-    IItem <|-- IInventoryItem : extends
-    IItem <|.. Gold : implements
-    IItem <|.. Coin : implements
-    IInventoryItem <|.. Weapon : implements
-    IInventoryItem <|.. Junk : implements
-    IWeapon <|.. BaseWeapon : implements
-    IWeapon <|.. WeaponDecorator : implements
-    IWeapon <|.. IHeavyWeapon : implements
-    IWeapon <|.. ILightWeapon : implements
-    IWeapon <|.. IMagicWeapon : implements
+    IItem <|-- IInventoryItem
+    IItem <|.. Gold
+    IItem <|.. Coin
+    IItem <|.. Enemy
+    IInventoryItem <|.. BaseWeapon
+    IInventoryItem <|.. Junk
+    IWeapon <|.. BaseWeapon
+    IWeapon <|.. WeaponDecorator
+    IWeapon <|.. IHeavyWeapon
+    IWeapon <|.. ILightWeapon
+    IWeapon <|.. IMagicWeapon
     BaseWeapon <|-- Sword
     BaseWeapon <|-- Dagger
     BaseWeapon <|-- TwoHandedAxe
     BaseWeapon <|-- MagicStaff
+    Sword --|> IHeavyWeapon
+    Dagger --|> ILightWeapon
+    TwoHandedAxe --|> IHeavyWeapon
+    MagicStaff --|> IMagicWeapon
     WeaponDecorator <|-- StrongModifier
     WeaponDecorator <|-- UnluckyModifier
     Junk <|-- Skull
@@ -335,8 +366,10 @@ classDiagram
     Junk <|-- BrokenGlass
     Map o-- IItem
     Player o-- IInventoryItem
-    IInventoryItem ..> HandSide : uses
-    IInventoryItem ..> IAttackVisitor : uses
-    NormalAttack ..|> IAttackVisitor : implements
-    StealthAttack ..|> IAttackVisitor : implements
-    MagicAttack ..|> IAttackVisitor : implements
+    IInventoryItem ..> HandSide
+    IInventoryItem ..> IAttackVisitor
+    AttackVisitor <|.. NormalAttack
+    AttackVisitor <|.. StealthAttack
+    AttackVisitor <|.. MagicAttack
+    AttackCommand --> AttackVisitor
+    AttackCommand --> Enemy
