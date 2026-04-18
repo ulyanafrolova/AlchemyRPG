@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Carves pathways into the current grid to connect isolated areas.
@@ -60,62 +60,5 @@ public class CentralRoomModifier : IDungeonModifier
         for (int y = startY; y < startY + _roomHeight; y++)
             for (int x = startX; x < startX + _roomWidth; x++)
                 map.Grid[y, x] = Tiles.Floor;
-    }
-}
-
-/// <summary>
-/// Adds junk items into the world state.
-/// </summary>
-public class JunkItemsModifier : IDungeonModifier
-{
-    private readonly int _count;
-
-    public JunkItemsModifier(int count) => _count = count;
-
-    public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
-    {
-        if (_count <= 0) return;
-        controls.Add($"[{Keybinds.PickUp}] Pick Up"); controls.Add($"[{Keybinds.Drop}] Drop");
-        tutorialText.Add($"- You will find scattered junk. You can pick it up [{Keybinds.PickUp}] and drop it [{Keybinds.Drop}] if needed.");
-
-        for (int i = 0; i < _count; i++)
-            map.SpawnItemRandomly(rand, rand.Next(3) switch { 0 => new Skull(), 1 => new OldBone(), _ => new BrokenGlass() });
-    }
-}
-
-/// <summary>
-/// Adds functional, equippable items into the world state.
-/// </summary>
-public class WeaponsModifier : IDungeonModifier
-{
-    private readonly int _count;
-
-    public WeaponsModifier(int count) => _count = count;
-
-    public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
-    {
-        if (_count <= 0) return;
-        controls.Add($"[{Keybinds.PickUp}] Pick Up"); controls.Add($"[{Keybinds.EquipKeysLabel}] Equip");
-        tutorialText.Add($"- Weapons are hidden here. Pick them up [{Keybinds.PickUp}] and equip them [{Keybinds.EquipKeysLabel}] to survive.");
-
-        for (int i = 0; i < _count; i++)
-        {
-            IWeapon weapon = rand.Next(4) switch
-            {
-                0 => new Dagger(),
-                1 => new Sword(),
-                2 => new TwoHandedAxe(),
-                _ => new MagicStaff()
-            };
-            if (rand.Next(100) < 50) 
-            {
-                weapon = new StrongModifier(weapon);
-            }
-            if (rand.Next(100) < 50) 
-            {
-                weapon = new UnluckyModifier(weapon);
-            }
-            map.SpawnItemRandomly(rand, weapon);
-        }
     }
 }

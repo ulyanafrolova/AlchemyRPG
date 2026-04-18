@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// The base class for all attack types. It holds the final calculated numbers for damage and defense.

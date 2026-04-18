@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// The base abstract class for useless items that occupy backpack space 

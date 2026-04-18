@@ -1,5 +1,15 @@
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/bin/Debug/net9.0/AlchemyRPG
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/bin/Debug/net9.0/AlchemyRPG.deps.json
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/bin/Debug/net9.0/AlchemyRPG.runtimeconfig.json
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/bin/Debug/net9.0/AlchemyRPG.dll
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/bin/Debug/net9.0/AlchemyRPG.pdb
 /Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/AlchemyRPG.GeneratedMSBuildEditorConfig.editorconfig
 /Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/AlchemyRPG.AssemblyInfoInputs.cache
 /Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/AlchemyRPG.AssemblyInfo.cs
 /Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/AlchemyRPG.csproj.CoreCompileInputs.cache
 /Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/AlchemyRPG.sourcelink.json
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/AlchemyRPG.dll
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/refint/AlchemyRPG.dll
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/AlchemyRPG.pdb
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/AlchemyRPG.genruntimeconfig.cache
+/Users/ulyanafrolova/Desktop/OOP/AlchemyRPG/obj/Debug/net9.0/ref/AlchemyRPG.dll

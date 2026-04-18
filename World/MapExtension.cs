@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Provides extension methods for the Map class to centralize shared logic.
@@ -23,5 +23,19 @@ public static class MapExtensions
         } while (map.Grid[y, x] != Tiles.Floor || map.GetItemsAt(x, y).Count > 0);
 
         map.AddItem(x, y, item);
+    }
+    public static void SpawnEnemyRandomly(this Map map, Random rand, Enemy enemy)
+    {
+        int x, y;
+        do
+        {
+            x = rand.Next(1, map.Width - 1);
+            y = rand.Next(1, map.Height - 1);
+        } while (map.Grid[y, x] != Tiles.Floor || map.GetItemsAt(x, y).Count > 0 || map.GetEnemyAt(x, y) != null);
+
+        enemy.X = x;
+        enemy.Y = y;
+
+        map.Enemies.Add(enemy);
     }
 }

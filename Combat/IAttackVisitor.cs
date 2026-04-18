@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// This interface represents the "Visitor" in our combat system.

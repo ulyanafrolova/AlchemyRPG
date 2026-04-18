@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Extends the basic inventory item contract for weapons.
@@ -6,7 +6,7 @@ namespace AlchemyRPG;
 public interface IWeapon : IInventoryItem
 {
     int Damage { get; }
-    int LuckBonus { get; } 
+    int LuckBonus { get; }
 }
 /// <summary>
 /// Interface for heavy weapons

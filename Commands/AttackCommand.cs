@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Manages the combat interaction between the player and an enemy.
@@ -7,6 +7,13 @@ namespace AlchemyRPG;
 /// </summary>
 public class AttackCommand : ICommand
 {
+    private static readonly Dictionary<ConsoleKey, (int dx, int dy)> DirectionMap = new()
+    {
+        { Keybinds.MoveUp, (0, -1) },
+        { Keybinds.MoveDown, (0, 1) },
+        { Keybinds.MoveLeft, (-1, 0) },
+        { Keybinds.MoveRight, (1, 0) }
+    };
     /// <summary>
     /// The player can always attempt to initiate an attack.
     /// </summary>
@@ -19,17 +26,26 @@ public class AttackCommand : ICommand
         Console.SetCursorPosition(0, 0);
         state.Map.Draw(state);
         var dirKey = Console.ReadKey(true).Key;
-        if (dirKey == ConsoleKey.Escape) { state.Player.LogMessage = "Attack cancelled."; return; }
+        if (dirKey == ConsoleKey.Escape)
+        {
+            GameLogger.Instance.Log(LogType.System, "Attack cancelled.");
+            return;
+        }
         // Determine the target coordinates based on the chosen direction
         int targetX = state.Player.X, targetY = state.Player.Y;
-        if (dirKey == Keybinds.MoveUp) targetY--;
-        else if (dirKey == Keybinds.MoveDown) targetY++;
-        else if (dirKey == Keybinds.MoveLeft) targetX--;
-        else if (dirKey == Keybinds.MoveRight) targetX++;
-        else { state.Player.LogMessage = "Invalid direction."; return; }
+        if (DirectionMap.TryGetValue(dirKey, out var offset))
+        {
+            targetX += offset.dx;
+            targetY += offset.dy;
+        }
+        else
+        {
+            state.Player.LogMessage = "Invalid direction.";
+            return;
+        }
         // 2. Check if there is an enemy in the target cell
-        var itemsInTargetCell = state.Map.GetItemsAt(targetX, targetY);
-        var enemy = itemsInTargetCell.OfType<Enemy>().FirstOrDefault();
+        var enemy = state.Map.GetEnemyAt(targetX, targetY);
+
         if (enemy == null)
         {
             state.Player.LogMessage = "You swing at the empty air.";
@@ -41,12 +57,23 @@ public class AttackCommand : ICommand
         state.Map.Draw(state);
 
         var attackKey = Console.ReadKey(true).Key;
-        AttackVisitor visitor;
-        // Select the correct Visitor
-        if (attackKey == ConsoleKey.D1) visitor = new NormalAttack(state.Player);
-        else if (attackKey == ConsoleKey.D2) visitor = new StealthAttack(state.Player);
-        else if (attackKey == ConsoleKey.D3) visitor = new MagicAttack(state.Player);
-        else { state.Player.LogMessage = "Attack cancelled."; return; }
+        var attackFactories = new Dictionary<ConsoleKey, Func<Player, AttackVisitor>>
+        {
+            { ConsoleKey.D1, p => new NormalAttack(p) },
+            { ConsoleKey.D2, p => new StealthAttack(p) },
+            { ConsoleKey.D3, p => new MagicAttack(p) }
+        };
+
+        // Attempt to get the correct factory function based on the key pressed
+        if (!attackFactories.TryGetValue(attackKey, out var createAttack))
+        {
+            GameLogger.Instance.Log(LogType.System, "Attack cancelled.");
+            return;
+        }
+
+        // Execute the factory function to create the specific Visitor
+        AttackVisitor visitor = createAttack(state.Player);
+
         // Get the weapon currently held by the player
         IInventoryItem? activeWeapon = state.Player.RightHand ?? state.Player.LeftHand;
         // 4. Visitor pattern: the attack (visitor) is passed to the weapon, which will
@@ -62,10 +89,13 @@ public class AttackCommand : ICommand
         // 5. Calculate damage done to the enemy 
         int playerDamageDone = Math.Max(0, visitor.CalculatedDamage - enemy.Armor);
         enemy.Health -= playerDamageDone;
+
+        GameLogger.Instance.Log(LogType.Combat,$"{state.Player.Name} dealt {playerDamageDone} dmg to {enemy.Name} using {visitor.GetType().Name}.");
+
         // 6. Check for enemy death
         if (enemy.Health <= 0)
         {
-            state.Map.RemoveItem(targetX, targetY, enemy);
+            state.Map.Enemies.Remove(enemy);
             state.Player.LogMessage = $"You hit {enemy.Name} for {playerDamageDone} dmg. It dies!";
             return;
         }
@@ -73,11 +103,12 @@ public class AttackCommand : ICommand
         int damageTakenByPlayer = Math.Max(0, enemy.AttackDamage - visitor.CalculatedDefense);
         state.Player.Health -= damageTakenByPlayer;
 
-        state.Player.LogMessage = $"You hit for {playerDamageDone} dmg. {enemy.Name} hits back for {damageTakenByPlayer} dmg! (HP left: {state.Player.Health})";
+        state.Player.LogMessage = ($"You hit for {playerDamageDone} dmg. {enemy.Name} hits back for {damageTakenByPlayer} dmg! (HP left: {state.Player.Health})");
         // 8. Check for player death
         if (state.Player.Health <= 0)
         {
             state.IsGameOver = true;
+            GameLogger.Instance.Log(LogType.System, $"{state.Player.Name} died in combat.");
         }
     }
 }

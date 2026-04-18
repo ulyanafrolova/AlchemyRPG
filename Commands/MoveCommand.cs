@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Represents a command to move the player by a specific offset on the map.
@@ -39,7 +39,7 @@ public class MoveCommand : ICommand
         int targetX = state.Player.X + _dx;
         int targetY = state.Player.Y + _dy;
 
-        var enemy = state.Map.GetItemsAt(targetX, targetY).OfType<Enemy>().FirstOrDefault();
+        var enemy = state.Map.GetEnemyAt(targetX, targetY);
 
         if (enemy != null)
         {
@@ -48,6 +48,10 @@ public class MoveCommand : ICommand
         else if (state.Map.Grid[targetY, targetX] != Tiles.Wall)
         {
             state.Player.Move(_dx, _dy);
+        }
+        else
+        {
+            GameLogger.Instance.Log(LogType.Movement, $"{state.Player.Name} bumped into a cold stone wall.");
         }
     }
 }

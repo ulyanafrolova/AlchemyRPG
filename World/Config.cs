@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 public static class Config
 {
     public const int WindowWidth = 110;

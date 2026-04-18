@@ -6,18 +6,8 @@ namespace AlchemyRPG;
 /// </summary>
 /// <param name="startX">The initial horizontal position of the player on the map.</param>
 /// <param name="startY">The initial vertical position of the player on the map.</param>
-public class Player(int startX, int startY)
+public class Player: Entity
 {
-    /// <summary> 
-    /// Gets the current horizontal position (column) of the player on the map.
-    /// </summary>
-    public int X { get; private set; } = startX;
-
-    /// <summary> 
-    /// Gets the current vertical position (row) of the player on the map. 
-    /// </summary>
-    public int Y { get; private set; } = startY;
-
     // RPG Statistics
 
     /// <summary> 
@@ -31,14 +21,20 @@ public class Player(int startX, int startY)
     public int Dexterity { get; private set; } = 10;
 
     /// <summary> 
-    /// Gets the player's health points.
-    /// </summary>
-    public int Health { get; set; } = 100;
-
-    /// <summary> 
     /// Gets the player's luck. 
     /// </summary>
     public int Luck { get; private set; } = 5;
+
+    public int TotalLuck
+    {
+        get
+        {
+            int bonus = 0;
+            if (RightHand is IWeapon rw) bonus += rw.LuckBonus;
+            if (LeftHand is IWeapon lw) bonus += lw.LuckBonus;
+            return Luck + bonus;
+        }
+    }
 
     /// <summary> 
     /// Gets the player's aggression level. 
@@ -83,6 +79,12 @@ public class Player(int startX, int startY)
     /// </summary>
     public string LogMessage { get; set; } = "";
 
+    public Player(string name, int startX, int startY) : base(name, Tiles.Player, 100)
+    {
+        X = startX;
+        Y = startY;
+    }
+
     /// <summary>
     /// Updates the player's coordinates on the map.
     /// </summary>
@@ -124,7 +126,7 @@ public class Player(int startX, int startY)
         LeftHand = item;
         if (RightHand == item) RightHand = null;
 
-        LogMessage = $"Equipped to LEFT hand: {item.Name}";
+        GameLogger.Instance.Log(LogType.Loot, $"{Name} equipped to LEFT hand: {item.Name}");
     }
 
     /// <summary>
@@ -142,7 +144,7 @@ public class Player(int startX, int startY)
         RightHand = item;
         if (LeftHand == item) LeftHand = null;
 
-        LogMessage = $"Equipped to RIGHT hand: {item.Name}";
+        GameLogger.Instance.Log(LogType.Loot, $"{Name} equipped to RIGHT hand: {item.Name}");
     }
 
     /// <summary>
@@ -153,7 +155,7 @@ public class Player(int startX, int startY)
     {
         LeftHand = item;
         RightHand = item;
-        LogMessage = $"Equipped two-handed: {item.Name}";
+        GameLogger.Instance.Log(LogType.Loot, $"{Name} equipped two-handed: {item.Name}");
     }
 
     /// <summary>
@@ -167,7 +169,7 @@ public class Player(int startX, int startY)
         {
             var item = Backpack[index];
             Backpack.RemoveAt(index);
-            LogMessage = $"Dropped: {item.Name}";
+            GameLogger.Instance.Log(LogType.Loot, $"{Name} dropped: {item.Name}");
             if (LeftHand == item) LeftHand = null;
             if (RightHand == item) RightHand = null;
             return item;

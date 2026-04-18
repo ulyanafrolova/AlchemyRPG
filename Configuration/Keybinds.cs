@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 public static class Keybinds
 {
@@ -11,12 +11,14 @@ public static class Keybinds
     public const ConsoleKey Drop = ConsoleKey.X;
     public const ConsoleKey Help = ConsoleKey.H;
 
+    public const ConsoleKey Journal = ConsoleKey.J;
+
     public const ConsoleKey EquipBaseKey = ConsoleKey.D0; 
     public const int EquipSlotsCount = 10;               
     public const string EquipKeysLabel = "0-9";
 
     public const ConsoleKey EquipLeft = ConsoleKey.Q;
-    public const ConsoleKey EquipRight = ConsoleKey.E;
+    public const ConsoleKey EquipRight = ConsoleKey.R;
     public const ConsoleKey Attack = ConsoleKey.C;
 
     public const ConsoleKey Cancel = ConsoleKey.Escape;

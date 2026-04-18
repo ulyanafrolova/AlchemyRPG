@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// A base abstract class for all weapons.
@@ -10,6 +10,7 @@ public abstract class BaseWeapon : IWeapon
     public char Symbol => Tiles.Weapon;
     public abstract int Damage { get; }
     public virtual int LuckBonus => 0;
+    public virtual int StrengthBonus => 0;
     public abstract bool IsTwoHanded { get; }
 
     /// <summary>

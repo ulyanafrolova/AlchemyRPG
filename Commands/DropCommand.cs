@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Represents an interactive command that allows the player to drop an item from their backpack.
@@ -45,11 +45,14 @@ public class DropCommand : ICommand
             // Attempt to remove the item from the backpack at the specified index
             var droppedItem = state.Player.DropItem(index);
             if (droppedItem != null)
+            {
                 state.Map.PlaceItemAt(state.Player.X, state.Player.Y, droppedItem);
+                GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} dropped {droppedItem.Name}");
+            }
         }
         else
-        {
-            state.Player.LogMessage = "Drop cancelled.";
+        {   
+            GameLogger.Instance.Log(LogType.Loot, "Drop cancelled.");
         }
     }
 }

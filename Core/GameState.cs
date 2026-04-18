@@ -8,6 +8,10 @@ namespace AlchemyRPG;
 public class GameState
 {
     /// <summary>
+    /// Gets or sets the configuration settings for the game
+    /// </summary>
+    public required GameConfig Config { get; set; }
+    /// <summary>
     /// Gets or sets the main player character. 
     /// The 'required' modifier ensures the player is initialized when the state is created.
     /// </summary>
@@ -37,5 +41,8 @@ public class GameState
     /// </summary>
     public string TutorialText { get; set; } = "";
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the game has ended
+    /// </summary>
     public bool IsGameOver { get; set; } = false;
 }

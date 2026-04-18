@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// A utility class that generates a random maze using the Depth-First Search (Recursive Backtracker) algorithm.

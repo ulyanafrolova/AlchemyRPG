@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Serves as the abstract base class for the Decorator design pattern.
@@ -22,7 +22,6 @@ public abstract class WeaponDecorator : IWeapon
     public virtual string Name => _innerWeapon.Name;
     public virtual int Damage => _innerWeapon.Damage;
     public virtual int LuckBonus => _innerWeapon.LuckBonus;
-
     public char Symbol => _innerWeapon.Symbol;
     public bool IsTwoHanded => _innerWeapon.IsTwoHanded;
 

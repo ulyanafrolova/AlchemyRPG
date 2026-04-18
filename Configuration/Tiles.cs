@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 public static class Tiles
 {
     public const char Wall = '█';

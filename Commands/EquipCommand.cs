@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Represents an interactive command that equips a selected inventory item to a specific hand.
@@ -50,10 +50,16 @@ public class EquipCommand : ICommand
 
         // Step 4: Process the input and execute the corresponding equip logic
         if (handKey == Keybinds.EquipLeft)
+        {
             state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Left);
+            GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} equipped {state.Player.Backpack[_inventoryIndex]} to left hand.");
+        }
         else if (handKey == Keybinds.EquipRight)
+        {
             state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Right);
+            GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} equipped {state.Player.Backpack[_inventoryIndex]} to right hand.");
+        }
         else
-            state.Player.LogMessage = "Cancelled equipping.";
+            GameLogger.Instance.Log(LogType.Loot, "Cancelled equipping.");
     }
 }

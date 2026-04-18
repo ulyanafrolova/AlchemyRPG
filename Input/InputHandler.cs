@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Acts as the "Invoker" in the Command Design Pattern.
@@ -32,6 +32,9 @@ public class InputHandler
 
         // Register Help Command
         _commands[Keybinds.Help] = new HelpCommand();
+
+        // Register Journal Command
+        _commands.Add(ConsoleKey.J, new JournalCommand());
 
         // Register Equip Commands 
         // This dynamically generates 10 unique EquipCommands

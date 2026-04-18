@@ -45,6 +45,11 @@ public class Game
             catch { } 
         }
 
+        GameConfig config = GameConfig.Load("config.json");
+
+        GameLogger.Initialize(new FileLogger(config.LogDirectory, config.PlayerName));
+        GameLogger.Instance.Log(LogType.System, "Game Engine initialized.");
+
         // Initialize the command pattern invoker
         _inputHandler = new InputHandler();
 
@@ -52,12 +57,27 @@ public class Game
         var builder = new DungeonBuilder();
         var director = new DungeonDirector(builder);
 
-        // Construct a standard dungeon with rooms, corridors, weapons, and junk
-        director.ConstructStandardDungeon();
+        var themeRegistry = new Dictionary<string, Func<IThemeFactory>>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "greenhouse", () => new GreenhouseThemeFactory() },
+            { "laboratory", () => new LaboratoryThemeFactory() },
+            { "mines",      () => new CrystalMineThemeFactory() }
+        };
+
+        if (!themeRegistry.TryGetValue(config.DungeonTheme, out var createTheme))
+        {
+            GameLogger.Instance.Log(LogType.System, $"Unknown theme '{config.DungeonTheme}'. Defaulting to Laboratory.");
+            createTheme = () => new LaboratoryThemeFactory();
+        }
+
+        IThemeFactory activeTheme = createTheme();
+
+        director.ConstructThemedDungeon(activeTheme);
 
         _state = new GameState
         {
-            Player = new Player(1, 1),
+            Config = config, 
+            Player = new Player(config.PlayerName, 1, 1), 
             Map = builder.GetMap(),
             Instructions = builder.GetInstructions(),
             TutorialText = builder.GetTutorialText()
@@ -96,6 +116,10 @@ public class Game
             Console.WriteLine("               GAME OVER                 ");
             Console.WriteLine("       You have lost in the battle!      ");
             Console.WriteLine("-----------------------------------------\n\n");
+            if (GameLogger.Instance is FileLogger fLogger)
+            {
+                Console.WriteLine($"\nFull adventure log saved to: {fLogger.SavedFilePath}");
+            }
         }
     }
 }

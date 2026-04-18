@@ -9,8 +9,9 @@ class Program
     /// The main entry point of the application. 
     /// Initializes a new instance of the game and starts the main execution loop.
     /// </summary>
-    static void Main()
+    static void Main(string[] args)
     {
-        new Game().Run();
+        Game game = new Game();
+        game.Run();
     }
 }

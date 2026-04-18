@@ -1,4 +1,4 @@
-namespace AlchemyRPG;
+﻿namespace AlchemyRPG;
 
 /// <summary>
 /// Implementation of the IDungeonBuilder interface.
@@ -19,7 +19,7 @@ public class DungeonBuilder : IDungeonBuilder
     /// We use a HashSet to prevent duplicate instructions 
     /// (e.g., if multiple methods add the "[E] Pick Up" prompt).
     /// </summary>
-    private readonly HashSet<string> _instructions = [$"[{Keybinds.MoveUp}{Keybinds.MoveDown}{Keybinds.MoveLeft}{Keybinds.MoveRight}] Move", $"[{Keybinds.Help}] Help"];
+    private readonly HashSet<string> _instructions = [$"[{Keybinds.MoveUp}{Keybinds.MoveDown}{Keybinds.MoveLeft}{Keybinds.MoveRight}] Move", $"[{Keybinds.Help}] Help", $"[{Keybinds.Journal}] Journal"];
 
     /// <summary>
     /// Initializes the foundational grid of the map as completely empty (walkable floor).
