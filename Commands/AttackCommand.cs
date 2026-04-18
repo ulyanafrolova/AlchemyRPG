@@ -97,6 +97,7 @@ public class AttackCommand : ICommand
         {
             state.Map.Enemies.Remove(enemy);
             state.Player.LogMessage = $"You hit {enemy.Name} for {playerDamageDone} dmg. It dies!";
+            GameLogger.Instance.Log(LogType.Combat, $"{enemy.Name} died in combat.");
             return;
         }
         // 7. Calculate damage taken by the player
