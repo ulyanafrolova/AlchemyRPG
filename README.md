@@ -1,5 +1,6 @@
 ````mermaid
 classDiagram
+    %% --- CORE GAME ---
     class Game {
         -GameState _state
         -bool _isRunning
@@ -21,6 +22,7 @@ classDiagram
         +string Instructions
         +string TutorialText
         +bool IsGameOver
+        +EventManager Events
     }
 
     class Map {
@@ -45,21 +47,68 @@ classDiagram
         +void SpawnEnemyRandomly(this Map map, Random rand, Enemy enemy)$
     }
 
+    %% --- EVENT SYSTEM (Observer Pattern) ---
+    class EventManager {
+        -Dictionary~Type, List~object~~ _listeners
+        +Subscribe~TEvent~(IEventListener~TEvent~ listener)
+        +Unsubscribe~TEvent~(IEventListener~TEvent~ listener)
+        +Notify~TEvent~(TEvent eventData)
+    }
+
+    class IEventListener~TEvent~ {
+        <<interface>>
+        +OnEvent(TEvent eventData)
+    }
+
+    class INoiseListener {
+        <<interface>>
+    }
+
+    class IEnemyDeathListener {
+        <<interface>>
+    }
+
+    class NoiseData {
+        +int SourceX
+        +int SourceY
+        +Dictionary~Tuple, int~ ReachedTiles
+    }
+
+    class EnemyDeathData {
+        +string Species
+    }
+
+    %% --- STRATEGY PATTERN (Enemy Behavior) ---
+    class IKinsmanDeathBehavior {
+        <<interface>>
+        +React(Enemy enemy)
+    }
+
+    class CowardlyBehavior {
+        +React(Enemy enemy)
+    }
+
+    class AggressiveBehavior {
+        +React(Enemy enemy)
+    }
+
+    class NeutralBehavior {
+        +React(Enemy enemy)
+    }
+
     %% --- LOGGING SYSTEM (Singleton + Strategy) ---
     class ILogger {
         <<interface>>
-        +Log(string message)
-        +GetFullHistory() List~string~
-        +GetRecentLogs(int count) List~string~
-        +SaveToFile(string directory, string playerName)
+        +Log(LogType type, string message)
+        +GetFullMemoryBuffer() List~LogEntry~
+        +GetRecentLogs(int count) List~LogEntry~
     }
 
     class FileLogger {
-        -List~string~ _logs
-        +Log(string message)
-        +GetFullHistory() List~string~
-        +GetRecentLogs(int count) List~string~
-        +SaveToFile(string directory, string playerName)
+        -Queue~LogEntry~ _memoryBuffer
+        +Log(LogType type, string message)
+        +GetFullMemoryBuffer() List~LogEntry~
+        +GetRecentLogs(int count) List~LogEntry~
     }
 
     class GameLogger {
@@ -102,8 +151,16 @@ classDiagram
     }
 
     class Enemy {
+        +string Species
         +int AttackDamage
         +int Armor
+        -IKinsmanDeathBehavior _deathBehavior
+        -EventManager _events
+        +ModifyAttackDamage(int delta)
+        +TriggerDeathProcessing()
+        +MoveRandomly(Map map, Random rand, Player player)
+        +OnEvent(NoiseData noise)
+        +OnEvent(EnemyDeathData deathInfo)
     }
 
     %% --- DUNGEON BUILDER & ABSTRACT FACTORY (THEMES) ---
@@ -111,14 +168,14 @@ classDiagram
         <<interface>>
         +GetWelcomeMessage() string
         +CreateLoot(Random rand) IItem
-        +CreateArtifact() IItem
-        +CreateEnemy(Random rand) Enemy
-        +ApplyThemeModifiers(IDungeonBuilder builder)
+        +CreateArtifact() IWeapon
+        +CreateEnemy(int index, EventManager events) Enemy
+        +ConfigureBuilder(IDungeonBuilder builder)
     }
 
-    class LibraryThemeFactory
-    class ForgeThemeFactory
-    class VaultThemeFactory
+    class LaboratoryThemeFactory
+    class GreenhouseThemeFactory
+    class CrystalMineThemeFactory
 
     class IDungeonBuilder {
         <<interface>>
@@ -140,8 +197,7 @@ classDiagram
 
     class DungeonDirector {
         -IDungeonBuilder _builder
-        +ConstructThemedDungeon(IThemeFactory themeFactory)
-        +ConstructArena()
+        +ConstructThemedDungeon(IThemeFactory themeFactory, EventManager events)
     }
 
     class IDungeonModifier {
@@ -152,9 +208,12 @@ classDiagram
     class CorridorsModifier
     class RoomsModifier
     class CentralRoomModifier
-    class JunkItemsModifier
-    class WeaponsModifier
-    class EnemiesModifier
+    class ThemePopulatorModifier {
+        -IThemeFactory _factory
+        -int _lootCount
+        -int _enemyCount
+        -EventManager _events
+    }
 
     class Labyrinth {
         <<static>>
@@ -211,58 +270,20 @@ classDiagram
         <<interface>>
         +int Damage
         +int LuckBonus
-        +int StrengthBonus
+        +int NoiseRange
     }
-
-    class IHeavyWeapon { <<interface>> }
-    class ILightWeapon { <<interface>> }
-    class IMagicWeapon { <<interface>> }
 
     class BaseWeapon {
         <<abstract>>
-        +string Name
-        +char Symbol
-        +int Damage
-        +int LuckBonus
-        +int StrengthBonus
-        +bool IsTwoHanded
-        +void OnPickUp(GameState state)
-        +void Equip(Player player, HandSide side)
-        +void Accept(IAttackVisitor visitor, IInventoryItem context)
     }
 
     class WeaponDecorator {
         <<abstract>>
         -IWeapon _innerWeapon
-        +string Name
-        +int Damage
-        +int LuckBonus
-        +int StrengthBonus
-        +char Symbol
-        +bool IsTwoHanded
-        +void OnPickUp(GameState state)
-        +void Equip(Player player, HandSide side)
-        +void Accept(IAttackVisitor visitor, IInventoryItem context)
     }
 
     class StrongModifier
     class UnluckyModifier
-    class StrengtheningModifier
-
-    class Dagger
-    class Sword
-    class TwoHandedAxe
-    class MagicStaff
-
-    class Junk {
-        <<abstract>>
-    }
-
-    class Skull
-    class OldBone
-    class BrokenGlass
-    class Gold
-    class Coin
 
     %% --- VISITOR PATTERN ---
     class IAttackVisitor {
@@ -284,43 +305,60 @@ classDiagram
     class StealthAttack
     class MagicAttack
 
-    %% --- RELATIONSHIPS ---
+    %% ==========================================
+    %% RELATIONSHIPS
+    %% ==========================================
+    
+    %% Core game
     Game *-- InputHandler
     Game *-- GameConfig
     Game --> GameState
     GameState --> Player
     GameState --> Map
+    GameState *-- EventManager
     
-    %% Entity / Map Hierarchy
+    %% Events & Observer
+    IEventListener~NoiseData~ <|-- INoiseListener
+    IEventListener~EnemyDeathData~ <|-- IEnemyDeathListener
+    INoiseListener <|.. Enemy
+    IEnemyDeathListener <|.. Enemy
+    EventManager ..> NoiseData
+    EventManager ..> EnemyDeathData
+
+    %% Entity / Strategy
     Entity <|-- Player
     Entity <|-- Enemy
+    IKinsmanDeathBehavior <|.. CowardlyBehavior
+    IKinsmanDeathBehavior <|.. AggressiveBehavior
+    IKinsmanDeathBehavior <|.. NeutralBehavior
+    Enemy *-- IKinsmanDeathBehavior
+
+    %% Map
     Map o-- IItem
     Map o-- Enemy
     MapExtensions ..> Map
 
-    %% Logging System
+    %% Logging
     ILogger <|.. FileLogger
     GameLogger o-- ILogger
     
-    %% Abstract Factory System
-    IThemeFactory <|.. LibraryThemeFactory
-    IThemeFactory <|.. ForgeThemeFactory
-    IThemeFactory <|.. VaultThemeFactory
+    %% Abstract Factory & Builder
+    IThemeFactory <|.. LaboratoryThemeFactory
+    IThemeFactory <|.. GreenhouseThemeFactory
+    IThemeFactory <|.. CrystalMineThemeFactory
     DungeonDirector o-- IThemeFactory
     DungeonDirector o-- IDungeonBuilder
     
-    %% Builder System
     IDungeonBuilder <|.. DungeonBuilder
     IDungeonModifier <|.. CorridorsModifier
     IDungeonModifier <|.. RoomsModifier
     IDungeonModifier <|.. CentralRoomModifier
-    IDungeonModifier <|.. JunkItemsModifier
-    IDungeonModifier <|.. WeaponsModifier
-    IDungeonModifier <|.. EnemiesModifier
+    IDungeonModifier <|.. ThemePopulatorModifier
     DungeonBuilder ..> IDungeonModifier
+    ThemePopulatorModifier *-- IThemeFactory
+    ThemePopulatorModifier --> EventManager
     CorridorsModifier ..> Labyrinth
-    DungeonBuilder ..> Map
-
+    
     %% Commands
     ICommand <|.. MoveCommand
     ICommand <|.. PickUpCommand
@@ -330,40 +368,16 @@ classDiagram
     ICommand <|.. AttackCommand
     ICommand <|.. JournalCommand
     InputHandler *-- ICommand
+    PickUpCommand ..> NoiseData
 
     %% Items
     Player o-- IInventoryItem
     IItem <|-- IInventoryItem
-    IItem <|.. Gold
-    IItem <|.. Coin
-    
     IInventoryItem <|.. BaseWeapon
-    IInventoryItem <|.. Junk
     IWeapon <|.. BaseWeapon
     IWeapon <|.. WeaponDecorator
-    IWeapon <|.. IHeavyWeapon
-    IWeapon <|.. ILightWeapon
-    IWeapon <|.. IMagicWeapon
-    
-    BaseWeapon <|-- Sword
-    BaseWeapon <|-- Dagger
-    BaseWeapon <|-- TwoHandedAxe
-    BaseWeapon <|-- MagicStaff
-    Sword --|> IHeavyWeapon
-    Dagger --|> ILightWeapon
-    TwoHandedAxe --|> IHeavyWeapon
-    MagicStaff --|> IMagicWeapon
-    
     WeaponDecorator <|-- StrongModifier
     WeaponDecorator <|-- UnluckyModifier
-    WeaponDecorator <|-- StrengtheningModifier
-    
-    Junk <|-- Skull
-    Junk <|-- OldBone
-    Junk <|-- BrokenGlass
-    
-    IInventoryItem ..> HandSide
-    IInventoryItem ..> IAttackVisitor
 
     %% Visitor
     IAttackVisitor <|.. AttackVisitor
