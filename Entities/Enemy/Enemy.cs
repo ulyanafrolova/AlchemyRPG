@@ -89,8 +89,13 @@ public class Enemy : Entity, INoiseListener, IEnemyDeathListener
     /// </summary>
     /// <param name="map">The current game map to check for walls and obstacles.</param>
     /// <param name="rand">The random number generator.</param>
-    public void MoveRandomly(Map map, Random rand)
+    public void MoveRandomly(Map map, Random rand, Player player)
     {
+        bool isNextToPlayer = Math.Abs(this.X - player.X) <= 1 && Math.Abs(this.Y - player.Y) <= 1;
+        if (isNextToPlayer)
+        {
+            return; 
+        }
         // 4 possible directions: Up, Down, Left, Right
         int[] dx = { 0, 0, -1, 1 };
         int[] dy = { -1, 1, 0, 0 };
@@ -104,9 +109,8 @@ public class Enemy : Entity, INoiseListener, IEnemyDeathListener
         // Also ensure the enemy doesn't step out of bounds
         if (newX >= 0 && newX < map.Width && newY >= 0 && newY < map.Height)
         {
-            if (map.IsWalkable(newX, newY))
+            if (map.IsWalkable(newX, newY) && !(newX == player.X && newY == player.Y))
             {
-                // Update the enemy's coordinates
                 X = newX;
                 Y = newY;
             }

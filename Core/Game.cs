@@ -127,7 +127,7 @@ public class Game
                 
                 foreach (var enemy in enemies)
                 {
-                    enemy.MoveRandomly(_state.Map, rand);
+                    enemy.MoveRandomly(_state.Map, rand, _state.Player);
                 }
             }
         }
