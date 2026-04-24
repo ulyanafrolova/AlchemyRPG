@@ -9,12 +9,14 @@ public class ThemePopulatorModifier : IDungeonModifier
     private readonly IThemeFactory _factory;
     private readonly int _lootCount;
     private readonly int _enemyCount;
+    private readonly EventManager _events;
 
-    public ThemePopulatorModifier(IThemeFactory factory, int lootCount, int enemyCount)
+    public ThemePopulatorModifier(IThemeFactory factory, int lootCount, int enemyCount, EventManager events)
     {
         _factory = factory;
         _lootCount = lootCount;
         _enemyCount = enemyCount;
+        _events = events;
     }
 
     public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
@@ -46,7 +48,7 @@ public class ThemePopulatorModifier : IDungeonModifier
 
             for (int i = 0; i < _enemyCount; i++)
             {
-                map.SpawnEnemyRandomly(rand, _factory.CreateEnemy(rand));
+                map.SpawnEnemyRandomly(rand, _factory.CreateEnemy(i, _events));
             }
         }
 

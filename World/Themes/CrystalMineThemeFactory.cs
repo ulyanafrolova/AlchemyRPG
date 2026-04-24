@@ -28,11 +28,11 @@ public class CrystalMineThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., a Crystal Basilisk or a Stone Gargoyle).</returns>
-    public Enemy CreateEnemy(Random rand)
+    public Enemy CreateEnemy(int index, EventManager events)
     {
-        return rand.Next(2) == 0
-            ? new Enemy("Crystal Basilisk", 45, 25, 6)
-            : new Enemy("Stone Gargoyle", 80, 15, 10);
+        return index % 2 == 0
+            ? new Enemy("Crystal Basilisk", "Basilisk", 45, 25, 6, events, new AggressiveBehavior())
+            : new Enemy("Stone Gargoyle", "Gargoyle", 80, 15, 10, events, new NeutralBehavior());
     }
 
     /// <summary>

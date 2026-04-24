@@ -23,7 +23,6 @@ public class Game
     /// </summary>
     private readonly InputHandler _inputHandler;
 
-
     /// <summary>
     /// Initializes a new instance of the Game class.
     /// Sets up the console, constructs the dungeon using the Builder pattern, 
@@ -42,7 +41,7 @@ public class Game
                 Console.SetWindowSize(Config.WindowWidth, Config.WindowHeight);
                 Console.SetBufferSize(Config.WindowWidth, Config.WindowHeight);
             }
-            catch { } 
+            catch { }
         }
 
         GameConfig config = GameConfig.Load("config.json");
@@ -53,6 +52,7 @@ public class Game
         // Initialize the command pattern invoker
         _inputHandler = new InputHandler();
 
+        var eventManager = new EventManager();
         // Use the Builder pattern to generate the dungeon
         var builder = new DungeonBuilder();
         var director = new DungeonDirector(builder);
@@ -61,7 +61,7 @@ public class Game
         {
             { "greenhouse", () => new GreenhouseThemeFactory() },
             { "laboratory", () => new LaboratoryThemeFactory() },
-            { "mines",      () => new CrystalMineThemeFactory() }
+            { "crystalmine",      () => new CrystalMineThemeFactory() }
         };
 
         if (!themeRegistry.TryGetValue(config.DungeonTheme, out var createTheme))
@@ -72,15 +72,25 @@ public class Game
 
         IThemeFactory activeTheme = createTheme();
 
-        director.ConstructThemedDungeon(activeTheme);
+        director.ConstructThemedDungeon(activeTheme, eventManager);
+        Map generatedMap = builder.GetMap();
+        int startX = 1;
+        int startY = 1;
+        if (!generatedMap.IsWalkable(startX, startY))
+        {
+            var safeSpawn = generatedMap.GetRandomWalkableTile(new Random());
+            startX = safeSpawn.x;
+            startY = safeSpawn.y;
+        }
 
         _state = new GameState
         {
-            Config = config, 
-            Player = new Player(config.PlayerName, 1, 1), 
-            Map = builder.GetMap(),
+            Config = config,
+            Player = new Player(config.PlayerName, startX, startY),
+            Map = generatedMap,
             Instructions = builder.GetInstructions(),
-            TutorialText = builder.GetTutorialText()
+            TutorialText = builder.GetTutorialText(),
+            Events = eventManager
         };
     }
 
@@ -108,6 +118,18 @@ public class Game
             // 3. Delegate the key press to the InputHandler.
             // If the handler returns false (e.g., Escape was pressed), the loop will end.
             _isRunning = _inputHandler.HandleInput(keyInfo.Key, _state);
+
+            if (_isRunning && !_state.IsGameOver)
+            {
+                var rand = new Random();
+                
+                var enemies = _state.Map.Enemies.ToList(); 
+                
+                foreach (var enemy in enemies)
+                {
+                    enemy.MoveRandomly(_state.Map, rand);
+                }
+            }
         }
         if (_state.IsGameOver)
         {

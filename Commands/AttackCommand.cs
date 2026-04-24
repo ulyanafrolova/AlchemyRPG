@@ -95,6 +95,7 @@ public class AttackCommand : ICommand
         // 6. Check for enemy death
         if (enemy.Health <= 0)
         {
+            enemy.TriggerDeathProcessing();
             state.Map.Enemies.Remove(enemy);
             state.Player.LogMessage = $"You hit {enemy.Name} for {playerDamageDone} dmg. It dies!";
             GameLogger.Instance.Log(LogType.Combat, $"{enemy.Name} died in combat.");

@@ -87,7 +87,7 @@ public class Map
             () => GetEnemyAt(x, y)?.Symbol,
             () => items.Count > 1 ? Tiles.SeveralItems : null,
             () => items.Count == 1 ? items.First().Symbol : null,
-            () => Grid[y, x] 
+            () => Grid[y, x]
         };
         return renderLayers.Select(layer => layer()).FirstOrDefault(s => s != null) ?? ' ';
     }
@@ -157,5 +157,53 @@ public class Map
             9 => "--- INVENTORY ---",
             _ => (y >= 10 && y < 10 + p.Backpack.Count) ? $"[{y - 10}] {p.Backpack[y - 10].Name}" : ""
         };
+    }
+
+    public Dictionary<(int x, int y), int> CalculateAcousticDistances(int startX, int startY, int maxRange)
+    {
+        var distances = new Dictionary<(int x, int y), int>();
+
+        var queue = new Queue<(int x, int y, int dist)>();
+
+        queue.Enqueue((startX, startY, 0));
+        distances[(startX, startY)] = 0;
+
+        int[] dx = { 0, 0, -1, 1 };
+        int[] dy = { -1, 1, 0, 0 };
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+
+            if (current.dist >= maxRange) continue;
+
+            for (int i = 0; i < 4; i++)
+            {
+                int nx = current.x + dx[i];
+                int ny = current.y + dy[i];
+
+                if (nx >= 0 && nx < Width && ny >= 0 && ny < Height && IsWalkable(nx, ny))
+                {
+                    if (!distances.ContainsKey((nx, ny)))
+                    {
+                        distances[(nx, ny)] = current.dist + 1;
+                        queue.Enqueue((nx, ny, current.dist + 1));
+                    }
+                }
+            }
+        }
+        return distances;
+    }
+
+    public (int x, int y) GetRandomWalkableTile(Random rand)
+    {
+        int spawnX, spawnY;
+        do
+        {
+            spawnX = rand.Next(1, Width - 1);
+            spawnY = rand.Next(1, Height - 1);
+        } 
+        while (!IsWalkable(spawnX, spawnY)); 
+        return (spawnX, spawnY);
     }
 }

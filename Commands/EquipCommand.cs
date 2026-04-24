@@ -52,12 +52,10 @@ public class EquipCommand : ICommand
         if (handKey == Keybinds.EquipLeft)
         {
             state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Left);
-            GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} equipped {state.Player.Backpack[_inventoryIndex]} to left hand.");
         }
         else if (handKey == Keybinds.EquipRight)
         {
             state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Right);
-            GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} equipped {state.Player.Backpack[_inventoryIndex]} to right hand.");
         }
         else
             GameLogger.Instance.Log(LogType.Loot, "Cancelled equipping.");

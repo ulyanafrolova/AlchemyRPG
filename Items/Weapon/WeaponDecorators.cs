@@ -19,6 +19,7 @@ public abstract class WeaponDecorator : IWeapon
     {
         _innerWeapon = innerWeapon;
     }
+    public virtual int NoiseRange => _innerWeapon.NoiseRange;
     public virtual string Name => _innerWeapon.Name;
     public virtual int Damage => _innerWeapon.Damage;
     public virtual int LuckBonus => _innerWeapon.LuckBonus;

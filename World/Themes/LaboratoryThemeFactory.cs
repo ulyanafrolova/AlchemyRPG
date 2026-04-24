@@ -29,11 +29,11 @@ public class LaboratoryThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., an Acid Slime or a Flesh Golem).</returns>
-    public Enemy CreateEnemy(Random rand)
+    public Enemy CreateEnemy(int index, EventManager events)
     {
-        return rand.Next(2) == 0
-            ? new Enemy("Acid Slime", 30, 15, 0)
-            : new Enemy("Flesh Golem", 60, 20, 5);
+        return index % 2 == 0
+            ? new Enemy("Acid Slime", "Slime", 30, 15, 0, events, new CowardlyBehavior())
+            : new Enemy("Flesh Golem", "Golem", 60, 20, 5, events, new AggressiveBehavior());
     }
 
     /// <summary>

@@ -22,11 +22,11 @@ public class DungeonDirector
     /// dungeon with themed loot and enemies.
     /// </summary>
     /// <param name="themeFactory">The factory that defines the theme and configuration for the dungeon. Cannot be null.</param>
-    public void ConstructThemedDungeon(IThemeFactory themeFactory)
+    public void ConstructThemedDungeon(IThemeFactory themeFactory, EventManager events)
     {
         themeFactory.ConfigureBuilder(_builder);
 
-        _builder.ApplyModifier(new ThemePopulatorModifier(themeFactory, lootCount: 10, enemyCount: 6));
+        _builder.ApplyModifier(new ThemePopulatorModifier(themeFactory, lootCount: 10, enemyCount: 6, events));
     }
     public IDungeonBuilder GetBuilder() => _builder;
 }

@@ -45,4 +45,6 @@ public class GameState
     /// Gets or sets a value indicating whether the game has ended
     /// </summary>
     public bool IsGameOver { get; set; } = false;
+
+    public required EventManager Events { get; set; }
 }

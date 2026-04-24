@@ -23,13 +23,12 @@ public interface IThemeFactory
     /// </summary>
     /// <returns>An object that implements the IWeapon interface representing the newly created artifact.</returns>
     IWeapon CreateArtifact();
-    
+
     /// <summary>
     /// Creates a new enemy instance using the specified random number generator.
     /// </summary>
     /// <param name="rand">The random number generator used to determine the properties of the created enemy. Cannot be null.</param>
     /// <returns>An object that implements the IEnemy interface representing the generated enemy.</returns>
-    Enemy CreateEnemy(Random rand);
-
-    void ConfigureBuilder(IDungeonBuilder builder);
+    Enemy CreateEnemy(int index, EventManager events);
+     void ConfigureBuilder(IDungeonBuilder builder);
 }

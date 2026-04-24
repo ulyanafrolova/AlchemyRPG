@@ -7,6 +7,11 @@ public interface IWeapon : IInventoryItem
 {
     int Damage { get; }
     int LuckBonus { get; }
+    /// <summary>
+    /// Determines how far the sound travels when this weapon is dropped or picked up.
+    /// Heavy weapons = High range, Light weapons = Low range.
+    /// </summary>
+    int NoiseRange { get; }
 }
 /// <summary>
 /// Interface for heavy weapons
