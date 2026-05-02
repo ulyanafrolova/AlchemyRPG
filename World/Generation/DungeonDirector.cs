@@ -22,7 +22,7 @@ public class DungeonDirector
     /// dungeon with themed loot and enemies.
     /// </summary>
     /// <param name="themeFactory">The factory that defines the theme and configuration for the dungeon. Cannot be null.</param>
-    public void ConstructThemedDungeon(IThemeFactory themeFactory, Subject<NoiseData> noiseEvents, Subject<EnemyDeathData> deathEvents)
+    public void ConstructThemedDungeon(IThemeFactory themeFactory, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents)
     {
         themeFactory.ConfigureBuilder(_builder);
 

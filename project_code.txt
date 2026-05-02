@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AlchemyRPG")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+933de963c435b689f5958aeb5a579fa5db0ecc7f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+eb76283166b0e7bd57f6635107763ede757173cb")]
 [assembly: System.Reflection.AssemblyProductAttribute("AlchemyRPG")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AlchemyRPG")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -143,8 +143,8 @@ public class Game
         // Initialize the command pattern invoker
         _inputHandler = new InputHandler();
 
-        var noiseEvents = new Subject<NoiseData>();
-        var deathEvents = new Subject<EnemyDeathData>();
+        ISubject<NoiseData> noiseEvents = new Subject<NoiseData>();
+        ISubject<EnemyDeathData> deathEvents = new Subject<EnemyDeathData>();
 
         // Use the Builder pattern to generate the dungeon
         var builder = new DungeonBuilder();
@@ -317,8 +317,8 @@ public class GameState
     /// </summary>
     public bool IsGameOver { get; set; } = false;
 
-    public required Subject<NoiseData> NoiseEvents { get; set; }
-    public required Subject<EnemyDeathData> DeathEvents { get; set; }
+    public required ISubject<NoiseData> NoiseEvents { get; set; }
+    public required ISubject<EnemyDeathData> DeathEvents { get; set; }
 
     /// <summary>
     /// If true, the game is waiting for a secondary key press (e.g., direction for attack).
@@ -1019,7 +1019,7 @@ public interface IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to determine the properties of the created enemy. Cannot be null.</param>
     /// <returns>An object that implements the IEnemy interface representing the generated enemy.</returns>
-    Enemy CreateEnemy(int index, Subject<NoiseData> NoiseEvents, Subject<EnemyDeathData> DeathEvents);
+    Enemy CreateEnemy(int index, ISubject<NoiseData> NoiseEvents, ISubject<EnemyDeathData> DeathEvents);
      void ConfigureBuilder(IDungeonBuilder builder);
 }
 
@@ -1054,7 +1054,7 @@ public class CrystalMineThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., a Crystal Basilisk or a Stone Gargoyle).</returns>
-    public Enemy CreateEnemy(int index, Subject<NoiseData> noiseEvents, Subject<EnemyDeathData> deathEvents)
+    public Enemy CreateEnemy(int index, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents)
     {
         return index % 2 == 0
             ? new Enemy("Crystal Basilisk", "Basilisk", 45, 25, 6, noiseEvents, deathEvents, new CowardlyBehavior())
@@ -1114,7 +1114,7 @@ public class LaboratoryThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., an Acid Slime or a Flesh Golem).</returns>
-    public Enemy CreateEnemy(int index, Subject<NoiseData> NoiseEvents, Subject<EnemyDeathData> DeathEvents)
+    public Enemy CreateEnemy(int index, ISubject<NoiseData> NoiseEvents, ISubject<EnemyDeathData> DeathEvents)
     {
         return index % 2 == 0
             ? new Enemy("Acid Slime", "Slime", 30, 15, 0, NoiseEvents, DeathEvents, new CowardlyBehavior())
@@ -1173,7 +1173,7 @@ public class GreenhouseThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., a Mutated Mandrake or a Carnivorous Plant).</returns>
-    public Enemy CreateEnemy(int index, Subject<NoiseData> noiseEvents, Subject<EnemyDeathData> deathEvents)
+    public Enemy CreateEnemy(int index, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents)
     {
         return index % 2 == 0
             ? new Enemy("Mutated Mandrake", "Plant", 25, 10, 1, noiseEvents, deathEvents, new CowardlyBehavior())
@@ -1214,15 +1214,15 @@ public class ThemePopulatorModifier : IDungeonModifier
     private readonly IThemeFactory _factory;
     private readonly int _lootCount;
     private readonly int _enemyCount;
-    private readonly Subject<NoiseData> _noiseEvents;
-    private readonly Subject<EnemyDeathData> _deathEvents;
+    private readonly ISubject<NoiseData> _noiseEvents;
+    private readonly ISubject<EnemyDeathData> _deathEvents;
 
     public ThemePopulatorModifier(
         IThemeFactory factory,
         int lootCount,
         int enemyCount,
-        Subject<NoiseData> noiseEvents,
-        Subject<EnemyDeathData> deathEvents)
+        ISubject<NoiseData> noiseEvents,
+        ISubject<EnemyDeathData> deathEvents)
     {
         _factory = factory;
         _lootCount = lootCount;
@@ -1291,7 +1291,7 @@ public class DungeonDirector
     /// dungeon with themed loot and enemies.
     /// </summary>
     /// <param name="themeFactory">The factory that defines the theme and configuration for the dungeon. Cannot be null.</param>
-    public void ConstructThemedDungeon(IThemeFactory themeFactory, Subject<NoiseData> noiseEvents, Subject<EnemyDeathData> deathEvents)
+    public void ConstructThemedDungeon(IThemeFactory themeFactory, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents)
     {
         themeFactory.ConfigureBuilder(_builder);
 
@@ -1734,7 +1734,22 @@ public class PickUpCommand : ICommand
         if (items.Count > 0)
         {
             var item = items.Last();
+
             item.OnPickUp(state);
+
+            GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} picked up {item.Name}");
+            state.Log = $"Picked up: {item.Name}";
+
+            if (item.NoiseRange > 0)
+            {
+                GameLogger.Instance.Log(LogType.Loot, $"Noise generated: {item.NoiseRange}");
+
+                var acousticMap = AcousticSystem.CalculateAcousticDistances(
+                    state.Map, state.Player.X, state.Player.Y, item.NoiseRange);
+
+                var noiseData = new NoiseData(state.Player.X, state.Player.Y, acousticMap);
+                state.NoiseEvents.Notify(noiseData);
+            }
         }
     }
 }
@@ -1837,10 +1852,21 @@ public class DropCommand : ICommand
             {
                 state.Map.PlaceItemAt(state.Player.X, state.Player.Y, droppedItem);
                 GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} dropped {droppedItem.Name}");
+                state.Log = $"Dropped: {droppedItem.Name}";
+                if (droppedItem.NoiseRange > 0)
+                {
+                    GameLogger.Instance.Log(LogType.Loot, $"Drop noise generated: {droppedItem.NoiseRange}");
+
+                    var acousticMap = AcousticSystem.CalculateAcousticDistances(
+                        state.Map, state.Player.X, state.Player.Y, droppedItem.NoiseRange);
+
+                    var noiseData = new NoiseData(state.Player.X, state.Player.Y, acousticMap);
+                    state.NoiseEvents.Notify(noiseData);
+                }
             }
         }
         else
-        {   
+        {
             GameLogger.Instance.Log(LogType.Loot, "Drop cancelled.");
         }
     }
@@ -1985,6 +2011,8 @@ public enum HandSide { Left, Right }
 /// </summary>
 public interface IItem
 {
+    int NoiseRange { get; }
+
     /// <summary> 
     /// Gets the display name of the item. 
     /// </summary>
@@ -2054,8 +2082,6 @@ public abstract class BaseWeapon : IWeapon
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
-
-        this.TriggerPickUpEffects(state);
     }
     /// <summary>
     /// Handles the rules for putting the weapon into the player's hands.
@@ -2143,8 +2169,6 @@ public abstract class WeaponDecorator : IWeapon
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
-
-        this.TriggerPickUpEffects(state);
     }
 
     /// <summary>
@@ -2232,24 +2256,6 @@ public class MagicStaff : BaseMagicWeapon
     public override void Accept(IAttackVisitor visitor) => visitor.VisitMagicWeapon(this);
 }
 
---- Файл: ./Items/Weapon/WeaponExtensions.cs ---
-namespace AlchemyRPG;
-
-public static class WeaponExtensions
-{
-    public static void TriggerPickUpEffects(this IWeapon weapon, GameState state)
-    {
-        GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} picked up {weapon.Name} (Noise generated: {weapon.NoiseRange})");
-        state.Log = $"Picked up weapon: {weapon.Name}";
-        if (weapon.NoiseRange > 0)
-        {
-            var acousticMap = AcousticSystem.CalculateAcousticDistances(state.Map, state.Player.X, state.Player.Y, weapon.NoiseRange);
-            var noiseData = new NoiseData(state.Player.X, state.Player.Y, acousticMap);
-            state.NoiseEvents.Notify(noiseData);
-        }
-    }
-}
-
 --- Файл: ./Items/Weapon/IWeapon.cs ---
 ﻿namespace AlchemyRPG;
 
@@ -2259,12 +2265,6 @@ public static class WeaponExtensions
 public interface IWeapon : IInventoryItem
 {
     int Damage { get; }
-
-    /// <summary>
-    /// Determines how far the sound travels when this weapon is dropped or picked up.
-    /// Heavy weapons = High range, Light weapons = Low range.
-    /// </summary>
-    int NoiseRange { get; }
 }
 /// <summary>
 /// Interface for heavy weapons
@@ -2292,6 +2292,7 @@ public class Gold(int amount) : IItem
     public string Name => "Gold";
     public char Symbol => Tiles.Gold;
     private readonly int _amount = amount;
+    public int NoiseRange => 0;
 
     public void OnPickUp(GameState state)
     {
@@ -2309,6 +2310,7 @@ public class Gold(int amount) : IItem
 public class Coin(int amount) : IItem
 {
     public string Name => "Coin";
+    public int NoiseRange => 0;
     public char Symbol => Tiles.Coin;
     private readonly int _amount = amount;
 
@@ -2331,6 +2333,7 @@ public abstract class Junk : IInventoryItem
 {
     public abstract string Name { get; }
     public int LuckBonus => 0;
+    public virtual int NoiseRange => 0;
     public char Symbol => Tiles.Unknown;
     public bool IsTwoHanded => false;
     public void OnPickUp(GameState state)
@@ -2373,7 +2376,14 @@ public interface IObserver<T>
     void OnNext(T data);
 }
 
-public class Subject<T>
+public interface ISubject<T>
+{
+    void Subscribe(IObserver<T> observer);
+    void Unsubscribe(IObserver<T> observer);
+    void Notify(T data);
+}
+
+public class Subject<T> : ISubject<T>
 {
     private readonly List<IObserver<T>> _observers = new();
 
@@ -2390,9 +2400,9 @@ public class Subject<T>
 
     public void Notify(T data)
     {
-        foreach (var observer in _observers.ToList()) 
+        for (int i = _observers.Count - 1; i >= 0; i--)
         {
-            observer.OnNext(data);
+            _observers[i].OnNext(data);
         }
     }
 }
@@ -2631,8 +2641,8 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
 
     private readonly IKinsmanDeathBehavior _deathBehavior;
 
-    private readonly Subject<NoiseData> _noiseEvents;
-    private readonly Subject<EnemyDeathData> _deathEvents;
+    private readonly ISubject<NoiseData> _noiseEvents;
+    private readonly ISubject<EnemyDeathData> _deathEvents;
 
     public Enemy(
         string name,
@@ -2640,8 +2650,8 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
         int health,
         int attackDamage,
         int armor,
-        Subject<NoiseData> noiseEvents,
-        Subject<EnemyDeathData> deathEvents,
+        ISubject<NoiseData> noiseEvents,
+        ISubject<EnemyDeathData> deathEvents,
         IKinsmanDeathBehavior? deathBehavior = null)
         : base(name, Tiles.Enemy, health)
     {
@@ -2690,10 +2700,9 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
     /// </summary>
     public void TriggerDeathProcessing()
     {
-        _deathEvents.Notify(new EnemyDeathData(this.Species));
-
         _noiseEvents.Unsubscribe(this);
         _deathEvents.Unsubscribe(this);
+        _deathEvents.Notify(new EnemyDeathData(this.Species));
     }
 
     public void Update(GameState state, Random rand)

@@ -8,6 +8,7 @@ public abstract class Junk : IInventoryItem
 {
     public abstract string Name { get; }
     public int LuckBonus => 0;
+    public virtual int NoiseRange => 0;
     public char Symbol => Tiles.Unknown;
     public bool IsTwoHanded => false;
     public void OnPickUp(GameState state)

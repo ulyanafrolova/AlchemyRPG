@@ -46,8 +46,8 @@ public class GameState
     /// </summary>
     public bool IsGameOver { get; set; } = false;
 
-    public required Subject<NoiseData> NoiseEvents { get; set; }
-    public required Subject<EnemyDeathData> DeathEvents { get; set; }
+    public required ISubject<NoiseData> NoiseEvents { get; set; }
+    public required ISubject<EnemyDeathData> DeathEvents { get; set; }
 
     /// <summary>
     /// If true, the game is waiting for a secondary key press (e.g., direction for attack).

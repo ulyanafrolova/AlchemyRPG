@@ -5,7 +5,14 @@ public interface IObserver<T>
     void OnNext(T data);
 }
 
-public class Subject<T>
+public interface ISubject<T>
+{
+    void Subscribe(IObserver<T> observer);
+    void Unsubscribe(IObserver<T> observer);
+    void Notify(T data);
+}
+
+public class Subject<T> : ISubject<T>
 {
     private readonly List<IObserver<T>> _observers = new();
 
@@ -22,9 +29,9 @@ public class Subject<T>
 
     public void Notify(T data)
     {
-        foreach (var observer in _observers.ToList()) 
+        for (int i = _observers.Count - 1; i >= 0; i--)
         {
-            observer.OnNext(data);
+            _observers[i].OnNext(data);
         }
     }
 }

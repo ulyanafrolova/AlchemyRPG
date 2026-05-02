@@ -27,7 +27,22 @@ public class PickUpCommand : ICommand
         if (items.Count > 0)
         {
             var item = items.Last();
+
             item.OnPickUp(state);
+
+            GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} picked up {item.Name}");
+            state.Log = $"Picked up: {item.Name}";
+
+            if (item.NoiseRange > 0)
+            {
+                GameLogger.Instance.Log(LogType.Loot, $"Noise generated: {item.NoiseRange}");
+
+                var acousticMap = AcousticSystem.CalculateAcousticDistances(
+                    state.Map, state.Player.X, state.Player.Y, item.NoiseRange);
+
+                var noiseData = new NoiseData(state.Player.X, state.Player.Y, acousticMap);
+                state.NoiseEvents.Notify(noiseData);
+            }
         }
     }
 }

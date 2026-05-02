@@ -35,8 +35,6 @@ public abstract class WeaponDecorator : IWeapon
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
-
-        this.TriggerPickUpEffects(state);
     }
 
     /// <summary>

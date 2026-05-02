@@ -44,10 +44,21 @@ public class DropCommand : ICommand
             {
                 state.Map.PlaceItemAt(state.Player.X, state.Player.Y, droppedItem);
                 GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} dropped {droppedItem.Name}");
+                state.Log = $"Dropped: {droppedItem.Name}";
+                if (droppedItem.NoiseRange > 0)
+                {
+                    GameLogger.Instance.Log(LogType.Loot, $"Drop noise generated: {droppedItem.NoiseRange}");
+
+                    var acousticMap = AcousticSystem.CalculateAcousticDistances(
+                        state.Map, state.Player.X, state.Player.Y, droppedItem.NoiseRange);
+
+                    var noiseData = new NoiseData(state.Player.X, state.Player.Y, acousticMap);
+                    state.NoiseEvents.Notify(noiseData);
+                }
             }
         }
         else
-        {   
+        {
             GameLogger.Instance.Log(LogType.Loot, "Drop cancelled.");
         }
     }

@@ -52,8 +52,8 @@ public class Game
         // Initialize the command pattern invoker
         _inputHandler = new InputHandler();
 
-        var noiseEvents = new Subject<NoiseData>();
-        var deathEvents = new Subject<EnemyDeathData>();
+        ISubject<NoiseData> noiseEvents = new Subject<NoiseData>();
+        ISubject<EnemyDeathData> deathEvents = new Subject<EnemyDeathData>();
 
         // Use the Builder pattern to generate the dungeon
         var builder = new DungeonBuilder();

@@ -10,6 +10,8 @@ public enum HandSide { Left, Right }
 /// </summary>
 public interface IItem
 {
+    int NoiseRange { get; }
+
     /// <summary> 
     /// Gets the display name of the item. 
     /// </summary>

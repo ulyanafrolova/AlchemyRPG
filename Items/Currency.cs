@@ -10,6 +10,7 @@ public class Gold(int amount) : IItem
     public string Name => "Gold";
     public char Symbol => Tiles.Gold;
     private readonly int _amount = amount;
+    public int NoiseRange => 0;
 
     public void OnPickUp(GameState state)
     {
@@ -27,6 +28,7 @@ public class Gold(int amount) : IItem
 public class Coin(int amount) : IItem
 {
     public string Name => "Coin";
+    public int NoiseRange => 0;
     public char Symbol => Tiles.Coin;
     private readonly int _amount = amount;
 

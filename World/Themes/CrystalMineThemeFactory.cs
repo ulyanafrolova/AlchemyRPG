@@ -28,7 +28,7 @@ public class CrystalMineThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., a Crystal Basilisk or a Stone Gargoyle).</returns>
-    public Enemy CreateEnemy(int index, Subject<NoiseData> noiseEvents, Subject<EnemyDeathData> deathEvents)
+    public Enemy CreateEnemy(int index, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents)
     {
         return index % 2 == 0
             ? new Enemy("Crystal Basilisk", "Basilisk", 45, 25, 6, noiseEvents, deathEvents, new CowardlyBehavior())

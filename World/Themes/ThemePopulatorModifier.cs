@@ -9,15 +9,15 @@ public class ThemePopulatorModifier : IDungeonModifier
     private readonly IThemeFactory _factory;
     private readonly int _lootCount;
     private readonly int _enemyCount;
-    private readonly Subject<NoiseData> _noiseEvents;
-    private readonly Subject<EnemyDeathData> _deathEvents;
+    private readonly ISubject<NoiseData> _noiseEvents;
+    private readonly ISubject<EnemyDeathData> _deathEvents;
 
     public ThemePopulatorModifier(
         IThemeFactory factory,
         int lootCount,
         int enemyCount,
-        Subject<NoiseData> noiseEvents,
-        Subject<EnemyDeathData> deathEvents)
+        ISubject<NoiseData> noiseEvents,
+        ISubject<EnemyDeathData> deathEvents)
     {
         _factory = factory;
         _lootCount = lootCount;

@@ -21,8 +21,6 @@ public abstract class BaseWeapon : IWeapon
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
-
-        this.TriggerPickUpEffects(state);
     }
     /// <summary>
     /// Handles the rules for putting the weapon into the player's hands.

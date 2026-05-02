@@ -13,8 +13,8 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
 
     private readonly IKinsmanDeathBehavior _deathBehavior;
 
-    private readonly Subject<NoiseData> _noiseEvents;
-    private readonly Subject<EnemyDeathData> _deathEvents;
+    private readonly ISubject<NoiseData> _noiseEvents;
+    private readonly ISubject<EnemyDeathData> _deathEvents;
 
     public Enemy(
         string name,
@@ -22,8 +22,8 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
         int health,
         int attackDamage,
         int armor,
-        Subject<NoiseData> noiseEvents,
-        Subject<EnemyDeathData> deathEvents,
+        ISubject<NoiseData> noiseEvents,
+        ISubject<EnemyDeathData> deathEvents,
         IKinsmanDeathBehavior? deathBehavior = null)
         : base(name, Tiles.Enemy, health)
     {
@@ -72,10 +72,9 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
     /// </summary>
     public void TriggerDeathProcessing()
     {
-        _deathEvents.Notify(new EnemyDeathData(this.Species));
-
         _noiseEvents.Unsubscribe(this);
         _deathEvents.Unsubscribe(this);
+        _deathEvents.Notify(new EnemyDeathData(this.Species));
     }
 
     public void Update(GameState state, Random rand)

@@ -29,7 +29,7 @@ public class LaboratoryThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., an Acid Slime or a Flesh Golem).</returns>
-    public Enemy CreateEnemy(int index, Subject<NoiseData> NoiseEvents, Subject<EnemyDeathData> DeathEvents)
+    public Enemy CreateEnemy(int index, ISubject<NoiseData> NoiseEvents, ISubject<EnemyDeathData> DeathEvents)
     {
         return index % 2 == 0
             ? new Enemy("Acid Slime", "Slime", 30, 15, 0, NoiseEvents, DeathEvents, new CowardlyBehavior())
