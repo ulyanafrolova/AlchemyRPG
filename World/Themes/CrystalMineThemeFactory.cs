@@ -28,12 +28,13 @@ public class CrystalMineThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., a Crystal Basilisk or a Stone Gargoyle).</returns>
-    public Enemy CreateEnemy(int index, EventManager events)
+    public Enemy CreateEnemy(int index, Subject<NoiseData> noiseEvents, Subject<EnemyDeathData> deathEvents)
     {
         return index % 2 == 0
-            ? new Enemy("Crystal Basilisk", "Basilisk", 45, 25, 6, events, new AggressiveBehavior())
-            : new Enemy("Stone Gargoyle", "Gargoyle", 80, 15, 10, events, new NeutralBehavior());
+            ? new Enemy("Crystal Basilisk", "Basilisk", 45, 25, 6, noiseEvents, deathEvents, new CowardlyBehavior())
+            : new Enemy("Stone Gargoyle", "Gargoyle", 80, 15, 10, noiseEvents, deathEvents, new AggressiveBehavior());
     }
+
 
     /// <summary>
     /// Generates standard thematic loot for the player to find scattered in the mines.

@@ -6,7 +6,7 @@ namespace AlchemyRPG;
 /// </summary>
 /// <param name="startX">The initial horizontal position of the player on the map.</param>
 /// <param name="startY">The initial vertical position of the player on the map.</param>
-public class Player: Entity
+public class Player : Entity
 {
     // RPG Statistics
 
@@ -30,8 +30,8 @@ public class Player: Entity
         get
         {
             int bonus = 0;
-            if (RightHand is IWeapon rw) bonus += rw.LuckBonus;
-            if (LeftHand is IWeapon lw) bonus += lw.LuckBonus;
+            if (RightHand != null) bonus += RightHand.LuckBonus;
+            if (LeftHand != null) bonus += LeftHand.LuckBonus;
             return Luck + bonus;
         }
     }

@@ -37,18 +37,18 @@ public class EquipCommand : ICommand
     /// <param name="state">The current global state of the game.</param>
     public void Execute(GameState state)
     {
-        // Step 1: Prompt for additional information
-        // We dynamically insert the item's name into the prompt 
         state.Log = $"Equipping {state.Player.Backpack[_inventoryIndex].Name}. Which hand? [{Keybinds.EquipLeft}] Left / [{Keybinds.EquipRight}] Right";
 
-        // Step 2: Force an immediate screen redraw to display the prompt
-        Console.SetCursorPosition(0, 0);
-        state.Map.Draw(state);
+        state.IsWaitingForSecondaryInput = true;
+        state.PendingAction = (handKey) => ProcessEquipInput(state, handKey);
+    }
 
-        // Step 3: Wait for the player's decision
-        var handKey = Console.ReadKey(true).Key;
+    private void ProcessEquipInput(GameState state, ConsoleKey handKey)
+    {
+        state.IsWaitingForSecondaryInput = false;
+        state.PendingAction = null;
+        state.Log = "";
 
-        // Step 4: Process the input and execute the corresponding equip logic
         if (handKey == Keybinds.EquipLeft)
         {
             state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Left);
@@ -58,6 +58,8 @@ public class EquipCommand : ICommand
             state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Right);
         }
         else
+        {
             GameLogger.Instance.Log(LogType.Loot, "Cancelled equipping.");
+        }
     }
 }

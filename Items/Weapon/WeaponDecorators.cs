@@ -35,7 +35,8 @@ public abstract class WeaponDecorator : IWeapon
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
-        state.Log = $"Picked up weapon: {Name}";
+
+        this.TriggerPickUpEffects(state);
     }
 
     /// <summary>
@@ -47,9 +48,9 @@ public abstract class WeaponDecorator : IWeapon
         else if (side == HandSide.Left) player.EquipLeftHand(this);
         else player.EquipRightHand(this);
     }
-    public void Accept(IAttackVisitor visitor, IInventoryItem context)
+    public void Accept(IAttackVisitor visitor)
     {
-        _innerWeapon.Accept(visitor, context);
+        _innerWeapon.Accept(visitor);
     }
 }
 

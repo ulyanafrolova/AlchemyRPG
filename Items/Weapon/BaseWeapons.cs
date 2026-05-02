@@ -21,7 +21,8 @@ public abstract class BaseWeapon : IWeapon
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
-        state.Log = $"Picked up weapon: {Name}";
+
+        this.TriggerPickUpEffects(state);
     }
     /// <summary>
     /// Handles the rules for putting the weapon into the player's hands.
@@ -36,7 +37,7 @@ public abstract class BaseWeapon : IWeapon
     /// We force every specific weapon class to implement this so it can route the attack 
     /// to the correct mathematical formula without using 'switch' statements.
     /// </summary>
-    public abstract void Accept(IAttackVisitor visitor, IInventoryItem context);
+    public abstract void Accept(IAttackVisitor visitor);
 }
 
 /// <summary>

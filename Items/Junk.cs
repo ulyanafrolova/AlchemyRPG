@@ -7,12 +7,14 @@
 public abstract class Junk : IInventoryItem
 {
     public abstract string Name { get; }
+    public int LuckBonus => 0;
     public char Symbol => Tiles.Unknown;
     public bool IsTwoHanded => false;
     public void OnPickUp(GameState state)
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
+        GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} picked up {Name}.");
         state.Log = $"Picked up junk: {Name}";
     }
     public void Equip(Player player, HandSide side)
@@ -21,7 +23,7 @@ public abstract class Junk : IInventoryItem
         else player.EquipRightHand(this);
     }
 
-    public void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitNonWeapon();
+    public void Accept(IAttackVisitor visitor) => visitor.VisitNonWeapon();
 }
 
 /// <summary> 

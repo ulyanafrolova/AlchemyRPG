@@ -6,6 +6,8 @@
 /// </summary>
 public class FileLogger : ILogger, IDisposable
 {
+    public string? GetLogFilePath() => SavedFilePath;
+    
     /// <summary>
     /// In-memory FIFO buffer storing the most recent <see cref="_maxBufferSize"/> <see cref="LogEntry"/> instances.
     /// This buffer is intended for quick UI access without reading the log file from disk.

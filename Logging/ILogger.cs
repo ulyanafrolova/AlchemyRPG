@@ -8,4 +8,5 @@ public interface ILogger
     void Log(LogType type, string message);
     IReadOnlyList<LogEntry> GetFullMemoryBuffer();
     IReadOnlyList<LogEntry> GetRecentLogs(int count);
+    string? GetLogFilePath();
 }

@@ -9,22 +9,28 @@ public class ThemePopulatorModifier : IDungeonModifier
     private readonly IThemeFactory _factory;
     private readonly int _lootCount;
     private readonly int _enemyCount;
-    private readonly EventManager _events;
+    private readonly Subject<NoiseData> _noiseEvents;
+    private readonly Subject<EnemyDeathData> _deathEvents;
 
-    public ThemePopulatorModifier(IThemeFactory factory, int lootCount, int enemyCount, EventManager events)
+    public ThemePopulatorModifier(
+        IThemeFactory factory,
+        int lootCount,
+        int enemyCount,
+        Subject<NoiseData> noiseEvents,
+        Subject<EnemyDeathData> deathEvents)
     {
         _factory = factory;
         _lootCount = lootCount;
         _enemyCount = enemyCount;
-        _events = events;
+
+        _noiseEvents = noiseEvents;
+        _deathEvents = deathEvents;
     }
 
     public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
     {
-        // 1. Spawn exactly one unique thematic artifact (always guaranteed)
         map.SpawnItemRandomly(rand, _factory.CreateArtifact());
 
-        // 2. Add loot and corresponding tutorial instructions only if needed
         if (_lootCount > 0)
         {
             controls.Add($"[{Keybinds.PickUp}] Pick Up");
@@ -40,7 +46,6 @@ public class ThemePopulatorModifier : IDungeonModifier
             }
         }
 
-        // 3. Add enemies and combat instructions only if needed
         if (_enemyCount > 0)
         {
             controls.Add($"[{Keybinds.Attack}] Attack");
@@ -48,11 +53,10 @@ public class ThemePopulatorModifier : IDungeonModifier
 
             for (int i = 0; i < _enemyCount; i++)
             {
-                map.SpawnEnemyRandomly(rand, _factory.CreateEnemy(i, _events));
+                map.SpawnEnemyRandomly(rand, _factory.CreateEnemy(i, _noiseEvents, _deathEvents));
             }
         }
 
-        // 4. Add the theme's atmospheric welcome message
         tutorialText.Add(_factory.GetWelcomeMessage());
     }
 }

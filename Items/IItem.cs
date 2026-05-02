@@ -38,6 +38,8 @@ public interface IInventoryItem : IItem
     /// </summary>
     bool IsTwoHanded { get; }
 
+    int LuckBonus { get; }
+
     /// <summary>
     /// Attempts to equip the item to the specified hand of the player.
     /// </summary>
@@ -50,5 +52,5 @@ public interface IInventoryItem : IItem
     /// </summary>
     /// <param name="visitor">The visitor that defines the operation to perform on the inventory item</param>
     /// <param name="context">The context in which the visitor operates</param>
-    void Accept(IAttackVisitor visitor, IInventoryItem context);
+    void Accept(IAttackVisitor visitor);
 }

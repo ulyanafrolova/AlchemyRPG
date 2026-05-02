@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AlchemyRPG")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dc8842fbeb017611f43a9ec7780998ef37157015")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+933de963c435b689f5958aeb5a579fa5db0ecc7f")]
 [assembly: System.Reflection.AssemblyProductAttribute("AlchemyRPG")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AlchemyRPG")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -114,8 +114,6 @@ public class Game
     /// </summary>
     private readonly InputHandler _inputHandler;
 
-    public static EventManager Events { get; } = new EventManager();
-
     /// <summary>
     /// Initializes a new instance of the Game class.
     /// Sets up the console, constructs the dungeon using the Builder pattern, 
@@ -145,6 +143,9 @@ public class Game
         // Initialize the command pattern invoker
         _inputHandler = new InputHandler();
 
+        var noiseEvents = new Subject<NoiseData>();
+        var deathEvents = new Subject<EnemyDeathData>();
+
         // Use the Builder pattern to generate the dungeon
         var builder = new DungeonBuilder();
         var director = new DungeonDirector(builder);
@@ -164,7 +165,7 @@ public class Game
 
         IThemeFactory activeTheme = createTheme();
 
-        director.ConstructThemedDungeon(activeTheme);
+        director.ConstructThemedDungeon(activeTheme, noiseEvents, deathEvents);
         Map generatedMap = builder.GetMap();
         int startX = 1;
         int startY = 1;
@@ -181,47 +182,76 @@ public class Game
             Player = new Player(config.PlayerName, startX, startY),
             Map = generatedMap,
             Instructions = builder.GetInstructions(),
-            TutorialText = builder.GetTutorialText()
+            TutorialText = builder.GetTutorialText(),
+            NoiseEvents = noiseEvents,
+            DeathEvents = deathEvents
         };
     }
-
     /// <summary>
-    /// Starts the main game loop. Continuously clears the screen, draws the current state, 
-    /// and waits for player input until the game is exited.
+    /// Starts the main game loop using a non-blocking Real-Time architecture.
     /// </summary>
     public void Run()
     {
         Console.Clear();
-
         new HelpCommand().Execute(_state);
+
+        DateTime lastEnemyMove = DateTime.Now;
+        TimeSpan enemyMoveInterval = TimeSpan.FromMilliseconds(800);
+
+        Console.SetCursorPosition(0, 0);
+        _state.Map.Draw(_state);
 
         while (_isRunning && !_state.IsGameOver)
         {
-            // Reset cursor to top-left to redraw the frame smoothly without flickering
-            Console.SetCursorPosition(0, 0);
+            bool needsRedraw = false;
 
-            // 1. Render the game world
-            _state.Map.Draw(_state);
-
-            // 2. Wait for the player to press a key
-            var keyInfo = Console.ReadKey(true);
-
-            // 3. Delegate the key press to the InputHandler.
-            // If the handler returns false (e.g., Escape was pressed), the loop will end.
-            _isRunning = _inputHandler.HandleInput(keyInfo.Key, _state);
-
-            if (_isRunning && !_state.IsGameOver)
+            if (Console.KeyAvailable)
             {
-                var rand = new Random();
-                
-                var enemies = _state.Map.Enemies.ToList(); 
-                
-                foreach (var enemy in enemies)
+                var keyInfo = Console.ReadKey(true);
+
+                if (_state.IsWaitingForSecondaryInput && _state.PendingAction != null)
                 {
-                    enemy.MoveRandomly(_state.Map, rand);
+                    if (keyInfo.Key == ConsoleKey.Escape)
+                    {
+                        _state.IsWaitingForSecondaryInput = false;
+                        _state.PendingAction = null;
+                        GameLogger.Instance.Log(LogType.System, "Action cancelled.");
+                    }
+                    else
+                    {
+                        _state.PendingAction(keyInfo.Key);
+                    }
                 }
+                else
+                {
+                    _isRunning = _inputHandler.HandleInput(keyInfo.Key, _state);
+                }
+                needsRedraw = true;
             }
+
+            if (DateTime.Now - lastEnemyMove >= enemyMoveInterval)
+            {
+                for (int i = _state.Map.Enemies.Count - 1; i >= 0; i--)
+                {
+                    var enemy = _state.Map.Enemies[i];
+                    if (!enemy.IsDead)
+                    {
+                        enemy.Update(_state, Random.Shared);
+                    }
+                }
+                lastEnemyMove = DateTime.Now;
+                needsRedraw = true;
+            }
+
+            if (needsRedraw)
+            {
+                Console.SetCursorPosition(0, 0);
+                _state.Map.Draw(_state);
+            }
+
+            Thread.Sleep(30);
         }
+
         if (_state.IsGameOver)
         {
             Console.Clear();
@@ -229,9 +259,10 @@ public class Game
             Console.WriteLine("               GAME OVER                 ");
             Console.WriteLine("       You have lost in the battle!      ");
             Console.WriteLine("-----------------------------------------\n\n");
-            if (GameLogger.Instance is FileLogger fLogger)
+            string? logPath = GameLogger.Instance.GetLogFilePath();
+            if (!string.IsNullOrEmpty(logPath))
             {
-                Console.WriteLine($"\nFull adventure log saved to: {fLogger.SavedFilePath}");
+                Console.WriteLine($"\nFull adventure log saved to: {logPath}");
             }
         }
     }
@@ -285,6 +316,19 @@ public class GameState
     /// Gets or sets a value indicating whether the game has ended
     /// </summary>
     public bool IsGameOver { get; set; } = false;
+
+    public required Subject<NoiseData> NoiseEvents { get; set; }
+    public required Subject<EnemyDeathData> DeathEvents { get; set; }
+
+    /// <summary>
+    /// If true, the game is waiting for a secondary key press (e.g., direction for attack).
+    /// </summary>
+    public bool IsWaitingForSecondaryInput { get; set; } = false;
+
+    /// <summary>
+    /// A delegate (action) that will be executed when the secondary key is pressed.
+    /// </summary>
+    public Action<ConsoleKey>? PendingAction { get; set; }
 }
 
 --- Файл: ./Core/Program.cs ---
@@ -572,7 +616,10 @@ public class InputHandler
             {
                 // Execution
                 command.Execute(state);
-                state.Log = ""; // Clear global prompt on success
+                if (!state.IsWaitingForSecondaryInput)
+                {
+                    state.Log = "";
+                }
             }
         }
         else
@@ -582,7 +629,7 @@ public class InputHandler
         }
 
         // Step 4: Continue the game
-        return true; 
+        return true;
     }
 }
 
@@ -613,31 +660,58 @@ public static class MapExtensions
     /// <param name="item">The item or entity to spawn.</param>
     public static void SpawnItemRandomly(this Map map, Random rand, IItem item)
     {
-        int x, y;
-        do
-        {
-            x = rand.Next(1, map.Width - 1);
-            y = rand.Next(1, map.Height - 1);
-        } while (map.Grid[y, x] != Tiles.Floor || map.GetItemsAt(x, y).Count > 0);
-
+        var (x, y) = map.GetRandomWalkableTile(rand);
         map.AddItem(x, y, item);
     }
+
     public static void SpawnEnemyRandomly(this Map map, Random rand, Enemy enemy)
     {
-        int x, y;
-        do
-        {
-            x = rand.Next(1, map.Width - 1);
-            y = rand.Next(1, map.Height - 1);
-        } while (map.Grid[y, x] != Tiles.Floor || map.GetItemsAt(x, y).Count > 0 || map.GetEnemyAt(x, y) != null);
-
-        enemy.X = x;
-        enemy.Y = y;
-
+        var (x, y) = map.GetRandomWalkableTile(rand);
+        enemy.SetPosition(x, y);
         map.Enemies.Add(enemy);
     }
 }
 
+
+--- Файл: ./World/AcousticSystem.cs ---
+namespace AlchemyRPG;
+
+public static class AcousticSystem
+{
+    public static Dictionary<(int x, int y), int> CalculateAcousticDistances(Map map, int startX, int startY, int maxRange)
+    {
+        var distances = new Dictionary<(int x, int y), int>();
+        var queue = new Queue<(int x, int y, int dist)>();
+
+        queue.Enqueue((startX, startY, 0));
+        distances[(startX, startY)] = 0;
+
+        int[] dx = { 0, 0, -1, 1 };
+        int[] dy = { -1, 1, 0, 0 };
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (current.dist >= maxRange) continue;
+
+            for (int i = 0; i < 4; i++)
+            {
+                int nx = current.x + dx[i];
+                int ny = current.y + dy[i];
+
+                if (nx >= 0 && nx < map.Width && ny >= 0 && ny < map.Height && map.Grid[ny, nx] != Tiles.Wall)
+                {
+                    if (!distances.ContainsKey((nx, ny)))
+                    {
+                        distances[(nx, ny)] = current.dist + 1;
+                        queue.Enqueue((nx, ny, current.dist + 1));
+                    }
+                }
+            }
+        }
+        return distances;
+    }
+}
 
 --- Файл: ./World/Map.cs ---
 namespace AlchemyRPG;
@@ -700,8 +774,16 @@ public class Map
     /// <param name="x">The horizontal coordinate.</param>
     /// <param name="y">The vertical coordinate.</param>
     /// <returns>A list of items at the given position, or an empty list if none exist.</returns>
-    public List<IItem> GetItemsAt(int x, int y) => [.. _items.Where(i => i.X == x && i.Y == y).Select(i => i.Item)];
-
+    public List<IItem> GetItemsAt(int x, int y)
+    {
+        var result = new List<IItem>();
+        foreach (var itemData in _items)
+        {
+            if (itemData.X == x && itemData.Y == y)
+                result.Add(itemData.Item);
+        }
+        return result;
+    }
     /// <summary>
     /// Determines whether a specific coordinate is safe for the player to walk on.
     /// Checks grid boundaries to prevent IndexOutOfRange exceptions and ensures the tile is not a wall.
@@ -800,43 +882,6 @@ public class Map
             _ => (y >= 10 && y < 10 + p.Backpack.Count) ? $"[{y - 10}] {p.Backpack[y - 10].Name}" : ""
         };
     }
-
-    public Dictionary<(int x, int y), int> CalculateAcousticDistances(int startX, int startY, int maxRange)
-    {
-        var distances = new Dictionary<(int x, int y), int>();
-
-        var queue = new Queue<(int x, int y, int dist)>();
-
-        queue.Enqueue((startX, startY, 0));
-        distances[(startX, startY)] = 0;
-
-        int[] dx = { 0, 0, -1, 1 };
-        int[] dy = { -1, 1, 0, 0 };
-
-        while (queue.Count > 0)
-        {
-            var current = queue.Dequeue();
-
-            if (current.dist >= maxRange) continue;
-
-            for (int i = 0; i < 4; i++)
-            {
-                int nx = current.x + dx[i];
-                int ny = current.y + dy[i];
-
-                if (nx >= 0 && nx < Width && ny >= 0 && ny < Height && IsWalkable(nx, ny))
-                {
-                    if (!distances.ContainsKey((nx, ny)))
-                    {
-                        distances[(nx, ny)] = current.dist + 1;
-                        queue.Enqueue((nx, ny, current.dist + 1));
-                    }
-                }
-            }
-        }
-        return distances;
-    }
-
     public (int x, int y) GetRandomWalkableTile(Random rand)
     {
         int spawnX, spawnY;
@@ -844,8 +889,8 @@ public class Map
         {
             spawnX = rand.Next(1, Width - 1);
             spawnY = rand.Next(1, Height - 1);
-        } 
-        while (!IsWalkable(spawnX, spawnY)); 
+        }
+        while (!IsWalkable(spawnX, spawnY));
         return (spawnX, spawnY);
     }
 }
@@ -968,15 +1013,14 @@ public interface IThemeFactory
     /// </summary>
     /// <returns>An object that implements the IWeapon interface representing the newly created artifact.</returns>
     IWeapon CreateArtifact();
-    
+
     /// <summary>
     /// Creates a new enemy instance using the specified random number generator.
     /// </summary>
     /// <param name="rand">The random number generator used to determine the properties of the created enemy. Cannot be null.</param>
     /// <returns>An object that implements the IEnemy interface representing the generated enemy.</returns>
-    Enemy CreateEnemy(Random rand);
-
-    void ConfigureBuilder(IDungeonBuilder builder);
+    Enemy CreateEnemy(int index, Subject<NoiseData> NoiseEvents, Subject<EnemyDeathData> DeathEvents);
+     void ConfigureBuilder(IDungeonBuilder builder);
 }
 
 --- Файл: ./World/Themes/CrystalMineThemeFactory.cs ---
@@ -1010,12 +1054,13 @@ public class CrystalMineThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., a Crystal Basilisk or a Stone Gargoyle).</returns>
-    public Enemy CreateEnemy(Random rand)
+    public Enemy CreateEnemy(int index, Subject<NoiseData> noiseEvents, Subject<EnemyDeathData> deathEvents)
     {
-        return rand.Next(2) == 0
-            ? new Enemy("Crystal Basilisk", "Basilisk", 45, 25, 6)
-            : new Enemy("Stone Gargoyle", "Gargoyle", 80, 15, 10);
+        return index % 2 == 0
+            ? new Enemy("Crystal Basilisk", "Basilisk", 45, 25, 6, noiseEvents, deathEvents, new CowardlyBehavior())
+            : new Enemy("Stone Gargoyle", "Gargoyle", 80, 15, 10, noiseEvents, deathEvents, new AggressiveBehavior());
     }
+
 
     /// <summary>
     /// Generates standard thematic loot for the player to find scattered in the mines.
@@ -1069,11 +1114,11 @@ public class LaboratoryThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., an Acid Slime or a Flesh Golem).</returns>
-    public Enemy CreateEnemy(Random rand)
+    public Enemy CreateEnemy(int index, Subject<NoiseData> NoiseEvents, Subject<EnemyDeathData> DeathEvents)
     {
-        return rand.Next(2) == 0
-            ? new Enemy("Acid Slime", "Slime", 30, 15, 0)
-            : new Enemy("Flesh Golem", "Golem", 60, 20, 5);
+        return index % 2 == 0
+            ? new Enemy("Acid Slime", "Slime", 30, 15, 0, NoiseEvents, DeathEvents, new CowardlyBehavior())
+            : new Enemy("Flesh Golem", "Golem", 60, 20, 5, NoiseEvents, DeathEvents, new AggressiveBehavior());
     }
 
     /// <summary>
@@ -1128,11 +1173,11 @@ public class GreenhouseThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., a Mutated Mandrake or a Carnivorous Plant).</returns>
-    public Enemy CreateEnemy(Random rand)
+    public Enemy CreateEnemy(int index, Subject<NoiseData> noiseEvents, Subject<EnemyDeathData> deathEvents)
     {
-        return rand.Next(2) == 0
-            ? new Enemy("Mutated Mandrake", "Plant", 25, 10, 1)
-            : new Enemy("Carnivorous Plant", "Plant", 40, 18, 3);
+        return index % 2 == 0
+            ? new Enemy("Mutated Mandrake", "Plant", 25, 10, 1, noiseEvents, deathEvents, new CowardlyBehavior())
+            : new Enemy("Carnivorous Plant", "Plant", 40, 18, 3, noiseEvents, deathEvents, new AggressiveBehavior());
     }
 
     /// <summary>
@@ -1169,20 +1214,28 @@ public class ThemePopulatorModifier : IDungeonModifier
     private readonly IThemeFactory _factory;
     private readonly int _lootCount;
     private readonly int _enemyCount;
+    private readonly Subject<NoiseData> _noiseEvents;
+    private readonly Subject<EnemyDeathData> _deathEvents;
 
-    public ThemePopulatorModifier(IThemeFactory factory, int lootCount, int enemyCount)
+    public ThemePopulatorModifier(
+        IThemeFactory factory,
+        int lootCount,
+        int enemyCount,
+        Subject<NoiseData> noiseEvents,
+        Subject<EnemyDeathData> deathEvents)
     {
         _factory = factory;
         _lootCount = lootCount;
         _enemyCount = enemyCount;
+
+        _noiseEvents = noiseEvents;
+        _deathEvents = deathEvents;
     }
 
     public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
     {
-        // 1. Spawn exactly one unique thematic artifact (always guaranteed)
         map.SpawnItemRandomly(rand, _factory.CreateArtifact());
 
-        // 2. Add loot and corresponding tutorial instructions only if needed
         if (_lootCount > 0)
         {
             controls.Add($"[{Keybinds.PickUp}] Pick Up");
@@ -1198,7 +1251,6 @@ public class ThemePopulatorModifier : IDungeonModifier
             }
         }
 
-        // 3. Add enemies and combat instructions only if needed
         if (_enemyCount > 0)
         {
             controls.Add($"[{Keybinds.Attack}] Attack");
@@ -1206,11 +1258,10 @@ public class ThemePopulatorModifier : IDungeonModifier
 
             for (int i = 0; i < _enemyCount; i++)
             {
-                map.SpawnEnemyRandomly(rand, _factory.CreateEnemy(rand));
+                map.SpawnEnemyRandomly(rand, _factory.CreateEnemy(i, _noiseEvents, _deathEvents));
             }
         }
 
-        // 4. Add the theme's atmospheric welcome message
         tutorialText.Add(_factory.GetWelcomeMessage());
     }
 }
@@ -1240,11 +1291,11 @@ public class DungeonDirector
     /// dungeon with themed loot and enemies.
     /// </summary>
     /// <param name="themeFactory">The factory that defines the theme and configuration for the dungeon. Cannot be null.</param>
-    public void ConstructThemedDungeon(IThemeFactory themeFactory)
+    public void ConstructThemedDungeon(IThemeFactory themeFactory, Subject<NoiseData> noiseEvents, Subject<EnemyDeathData> deathEvents)
     {
         themeFactory.ConfigureBuilder(_builder);
 
-        _builder.ApplyModifier(new ThemePopulatorModifier(themeFactory, lootCount: 10, enemyCount: 6));
+        _builder.ApplyModifier(new ThemePopulatorModifier(themeFactory, lootCount: 10, enemyCount: 6, noiseEvents, deathEvents));
     }
     public IDungeonBuilder GetBuilder() => _builder;
 }
@@ -1529,21 +1580,18 @@ public class AttackCommand : ICommand
     /// The player can always attempt to initiate an attack.
     /// </summary>
     public bool CanExecute(GameState state) => true;
-
     public void Execute(GameState state)
     {
-        // 1. Ask the player for the attack direction
         state.Log = $"Attack direction? [{Keybinds.MoveUp}{Keybinds.MoveDown}{Keybinds.MoveLeft}{Keybinds.MoveRight}] or ESC.";
-        Console.SetCursorPosition(0, 0);
-        state.Map.Draw(state);
-        var dirKey = Console.ReadKey(true).Key;
-        if (dirKey == ConsoleKey.Escape)
-        {
-            GameLogger.Instance.Log(LogType.System, "Attack cancelled.");
-            return;
-        }
-        // Determine the target coordinates based on the chosen direction
+
+        state.IsWaitingForSecondaryInput = true;
+        state.PendingAction = (dirKey) => ProcessDirectionInput(state, dirKey);
+    }
+
+    private void ProcessDirectionInput(GameState state, ConsoleKey dirKey)
+    {
         int targetX = state.Player.X, targetY = state.Player.Y;
+
         if (DirectionMap.TryGetValue(dirKey, out var offset))
         {
             targetX += offset.dx;
@@ -1552,73 +1600,72 @@ public class AttackCommand : ICommand
         else
         {
             state.Player.LogMessage = "Invalid direction.";
+            state.IsWaitingForSecondaryInput = false;
             return;
         }
-        // 2. Check if there is an enemy in the target cell
-        var enemy = state.Map.GetEnemyAt(targetX, targetY);
 
+        var enemy = state.Map.GetEnemyAt(targetX, targetY);
         if (enemy == null)
         {
             state.Player.LogMessage = "You swing at the empty air.";
+            state.IsWaitingForSecondaryInput = false;
+            state.PendingAction = null;
+            state.Log = "";
             return;
         }
-        // 3. The player selects the attack type
+
         state.Log = $"Fighting {enemy.Name} (HP: {enemy.Health}). Choose attack: [1] Normal, [2] Stealth, [3] Magic.";
-        Console.SetCursorPosition(0, 0);
-        state.Map.Draw(state);
 
-        var attackKey = Console.ReadKey(true).Key;
+        state.PendingAction = (attackKey) => ProcessAttackTypeInput(state, attackKey, enemy);
+    }
+
+    private void ProcessAttackTypeInput(GameState state, ConsoleKey attackKey, Enemy enemy)
+    {
+        state.IsWaitingForSecondaryInput = false;
+        state.PendingAction = null;
+        state.Log = "";
+
         var attackFactories = new Dictionary<ConsoleKey, Func<Player, AttackVisitor>>
-        {
-            { ConsoleKey.D1, p => new NormalAttack(p) },
-            { ConsoleKey.D2, p => new StealthAttack(p) },
-            { ConsoleKey.D3, p => new MagicAttack(p) }
-        };
+    {
+        { ConsoleKey.D1, p => new NormalAttack(p) },
+        { ConsoleKey.D2, p => new StealthAttack(p) },
+        { ConsoleKey.D3, p => new MagicAttack(p) }
+    };
 
-        // Attempt to get the correct factory function based on the key pressed
         if (!attackFactories.TryGetValue(attackKey, out var createAttack))
         {
             GameLogger.Instance.Log(LogType.System, "Attack cancelled.");
             return;
         }
 
-        // Execute the factory function to create the specific Visitor
         AttackVisitor visitor = createAttack(state.Player);
-
-        // Get the weapon currently held by the player
         IInventoryItem? activeWeapon = state.Player.RightHand ?? state.Player.LeftHand;
-        // 4. Visitor pattern: the attack (visitor) is passed to the weapon, which will
-        // route it to the correct formula based on its type
+
         if (activeWeapon != null)
-        {
-            activeWeapon.Accept(visitor, activeWeapon);
-        }
-        else
-        {
-            visitor.VisitNonWeapon();
-        }
-        // 5. Calculate damage done to the enemy 
+            activeWeapon.Accept(visitor);
+        else visitor.VisitNonWeapon();
+
         int playerDamageDone = Math.Max(0, visitor.CalculatedDamage - enemy.Armor);
-        enemy.Health -= playerDamageDone;
 
-        GameLogger.Instance.Log(LogType.Combat,$"{state.Player.Name} dealt {playerDamageDone} dmg to {enemy.Name} using {visitor.GetType().Name}.");
+        enemy.TakeDamage(playerDamageDone);
 
-        // 6. Check for enemy death
-        if (enemy.Health <= 0)
+        GameLogger.Instance.Log(LogType.Combat, $"{state.Player.Name} dealt {playerDamageDone} dmg to {enemy.Name}.");
+
+        if (enemy.IsDead)
         {
-            enemy.TriggerDeathProcessing();
             state.Map.Enemies.Remove(enemy);
-            state.Player.LogMessage = $"You hit {enemy.Name} for {playerDamageDone} dmg. It dies!";
+            state.Player.LogMessage = $"You killed {enemy.Name} with {playerDamageDone} dmg!";
             GameLogger.Instance.Log(LogType.Combat, $"{enemy.Name} died in combat.");
             return;
         }
-        // 7. Calculate damage taken by the player
-        int damageTakenByPlayer = Math.Max(0, enemy.AttackDamage - visitor.CalculatedDefense);
-        state.Player.Health -= damageTakenByPlayer;
 
-        state.Player.LogMessage = ($"You hit for {playerDamageDone} dmg. {enemy.Name} hits back for {damageTakenByPlayer} dmg! (HP left: {state.Player.Health})");
-        // 8. Check for player death
-        if (state.Player.Health <= 0)
+        int damageTakenByPlayer = Math.Max(0, enemy.AttackDamage - visitor.CalculatedDefense);
+        state.Player.TakeDamage(damageTakenByPlayer);
+
+        state.Player.LogMessage = $"Hit for {playerDamageDone}. {enemy.Name} hits back for {damageTakenByPlayer}! (HP: {state.Player.Health})";
+        GameLogger.Instance.Log(LogType.Combat, $"{state.Player.Name} took {damageTakenByPlayer} dmg from {enemy.Name}.");
+
+        if (state.Player.IsDead)
         {
             state.IsGameOver = true;
             GameLogger.Instance.Log(LogType.System, $"{state.Player.Name} died in combat.");
@@ -1688,26 +1735,6 @@ public class PickUpCommand : ICommand
         {
             var item = items.Last();
             item.OnPickUp(state);
-            if (item is IWeapon weapon)
-            {
-                var acousticMap = state.Map.CalculateAcousticDistances(
-                    state.Player.X,
-                    state.Player.Y,
-                    weapon.NoiseRange);
-
-                var noiseData = new NoiseData(state.Player.X, state.Player.Y, acousticMap);
-                Game.Events.Notify(EventTypes.Noise, noiseData);
-                GameLogger.Instance.Log(LogType.Loot, $"Picked up {weapon.Name} (Noise generated: {weapon.NoiseRange})");
-            }
-            else
-            {
-                GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} picked up {item.Name}.");
-
-            }
-        }
-        else
-        {
-            state.Player.LogMessage = "Nothing to pick up here.";
         }
     }
 }
@@ -1790,25 +1817,21 @@ public class DropCommand : ICommand
     /// <param name="state">The current global state of the game.</param>
     public void Execute(GameState state)
     {
-        // Step 1: Update the global log to prompt the user for additional information
         state.Log = $"Drop which item? [{Keybinds.EquipKeysLabel}] or {Keybinds.Cancel} to cancel.";
 
-        // Step 2: Force an immediate screen redraw so the player can read the prompt
-        // We must reset the cursor to the top-left corner before drawing the frame
-        Console.SetCursorPosition(0, 0);
-        state.Map.Draw(state);
+        state.IsWaitingForSecondaryInput = true;
+        state.PendingAction = (key) => ProcessDropInput(state, key);
+    }
 
-        // Step 3: Wait for the player to press a key
-        var key = Console.ReadKey(true).Key;
+    private void ProcessDropInput(GameState state, ConsoleKey key)
+    {
+        state.IsWaitingForSecondaryInput = false;
+        state.PendingAction = null;
+        state.Log = "";
 
-        // Step 4: Process the user's input
-        // Check if the pressed key is a number between 0 and 9
         if (key >= Keybinds.EquipBaseKey && key < Keybinds.EquipBaseKey + Keybinds.EquipSlotsCount)
         {
-            // Convert the ConsoleKey enumeration (e.g., D0, D1) into an actual integer index (0, 1)
             int index = key - Keybinds.EquipBaseKey;
-
-            // Attempt to remove the item from the backpack at the specified index
             var droppedItem = state.Player.DropItem(index);
             if (droppedItem != null)
             {
@@ -1922,18 +1945,18 @@ public class EquipCommand : ICommand
     /// <param name="state">The current global state of the game.</param>
     public void Execute(GameState state)
     {
-        // Step 1: Prompt for additional information
-        // We dynamically insert the item's name into the prompt 
         state.Log = $"Equipping {state.Player.Backpack[_inventoryIndex].Name}. Which hand? [{Keybinds.EquipLeft}] Left / [{Keybinds.EquipRight}] Right";
 
-        // Step 2: Force an immediate screen redraw to display the prompt
-        Console.SetCursorPosition(0, 0);
-        state.Map.Draw(state);
+        state.IsWaitingForSecondaryInput = true;
+        state.PendingAction = (handKey) => ProcessEquipInput(state, handKey);
+    }
 
-        // Step 3: Wait for the player's decision
-        var handKey = Console.ReadKey(true).Key;
+    private void ProcessEquipInput(GameState state, ConsoleKey handKey)
+    {
+        state.IsWaitingForSecondaryInput = false;
+        state.PendingAction = null;
+        state.Log = "";
 
-        // Step 4: Process the input and execute the corresponding equip logic
         if (handKey == Keybinds.EquipLeft)
         {
             state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Left);
@@ -1943,22 +1966,11 @@ public class EquipCommand : ICommand
             state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Right);
         }
         else
+        {
             GameLogger.Instance.Log(LogType.Loot, "Cancelled equipping.");
+        }
     }
 }
-
---- Файл: ./AlchemyRPG.csproj ---
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-
-</Project>
-
 
 --- Файл: ./Items/IItem.cs ---
 namespace AlchemyRPG;
@@ -2001,6 +2013,8 @@ public interface IInventoryItem : IItem
     /// </summary>
     bool IsTwoHanded { get; }
 
+    int LuckBonus { get; }
+
     /// <summary>
     /// Attempts to equip the item to the specified hand of the player.
     /// </summary>
@@ -2013,7 +2027,7 @@ public interface IInventoryItem : IItem
     /// </summary>
     /// <param name="visitor">The visitor that defines the operation to perform on the inventory item</param>
     /// <param name="context">The context in which the visitor operates</param>
-    void Accept(IAttackVisitor visitor, IInventoryItem context);
+    void Accept(IAttackVisitor visitor);
 }
 
 --- Файл: ./Items/Weapon/BaseWeapons.cs ---
@@ -2040,7 +2054,8 @@ public abstract class BaseWeapon : IWeapon
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
-        state.Log = $"Picked up weapon: {Name}";
+
+        this.TriggerPickUpEffects(state);
     }
     /// <summary>
     /// Handles the rules for putting the weapon into the player's hands.
@@ -2055,7 +2070,7 @@ public abstract class BaseWeapon : IWeapon
     /// We force every specific weapon class to implement this so it can route the attack 
     /// to the correct mathematical formula without using 'switch' statements.
     /// </summary>
-    public abstract void Accept(IAttackVisitor visitor, IInventoryItem context);
+    public abstract void Accept(IAttackVisitor visitor);
 }
 
 /// <summary>
@@ -2128,7 +2143,8 @@ public abstract class WeaponDecorator : IWeapon
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
-        state.Log = $"Picked up weapon: {Name}";
+
+        this.TriggerPickUpEffects(state);
     }
 
     /// <summary>
@@ -2140,9 +2156,9 @@ public abstract class WeaponDecorator : IWeapon
         else if (side == HandSide.Left) player.EquipLeftHand(this);
         else player.EquipRightHand(this);
     }
-    public void Accept(IAttackVisitor visitor, IInventoryItem context)
+    public void Accept(IAttackVisitor visitor)
     {
-        _innerWeapon.Accept(visitor, context);
+        _innerWeapon.Accept(visitor);
     }
 }
 
@@ -2180,7 +2196,7 @@ public class Dagger : BaseLightWeapon
     public override string Name => "Dagger";
     public override int Damage => 5;
     public override bool IsTwoHanded => false;
-    public override void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitLightWeapon((IWeapon)context);
+    public override void Accept(IAttackVisitor visitor) => visitor.VisitLightWeapon(this);
 }
 
 /// <summary>
@@ -2191,7 +2207,7 @@ public class Sword : BaseHeavyWeapon
     public override string Name => "Sword";
     public override int Damage => 10;
     public override bool IsTwoHanded => false;
-    public override void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitHeavyWeapon((IWeapon)context);
+    public override void Accept(IAttackVisitor visitor) => visitor.VisitHeavyWeapon(this);
 }
 
 /// <summary>
@@ -2202,7 +2218,7 @@ public class TwoHandedAxe : BaseHeavyWeapon
     public override string Name => "Two-Handed Axe";
     public override int Damage => 25;
     public override bool IsTwoHanded => true;
-    public override void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitHeavyWeapon((IWeapon)context);
+    public override void Accept(IAttackVisitor visitor) => visitor.VisitHeavyWeapon(this);
 }
 
 /// <summary>
@@ -2213,7 +2229,25 @@ public class MagicStaff : BaseMagicWeapon
     public override string Name => "Magic Staff";
     public override int Damage => 8;
     public override bool IsTwoHanded => true;
-    public override void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitMagicWeapon((IWeapon)context);
+    public override void Accept(IAttackVisitor visitor) => visitor.VisitMagicWeapon(this);
+}
+
+--- Файл: ./Items/Weapon/WeaponExtensions.cs ---
+namespace AlchemyRPG;
+
+public static class WeaponExtensions
+{
+    public static void TriggerPickUpEffects(this IWeapon weapon, GameState state)
+    {
+        GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} picked up {weapon.Name} (Noise generated: {weapon.NoiseRange})");
+        state.Log = $"Picked up weapon: {weapon.Name}";
+        if (weapon.NoiseRange > 0)
+        {
+            var acousticMap = AcousticSystem.CalculateAcousticDistances(state.Map, state.Player.X, state.Player.Y, weapon.NoiseRange);
+            var noiseData = new NoiseData(state.Player.X, state.Player.Y, acousticMap);
+            state.NoiseEvents.Notify(noiseData);
+        }
+    }
 }
 
 --- Файл: ./Items/Weapon/IWeapon.cs ---
@@ -2225,7 +2259,7 @@ public class MagicStaff : BaseMagicWeapon
 public interface IWeapon : IInventoryItem
 {
     int Damage { get; }
-    int LuckBonus { get; }
+
     /// <summary>
     /// Determines how far the sound travels when this weapon is dropped or picked up.
     /// Heavy weapons = High range, Light weapons = Low range.
@@ -2296,12 +2330,14 @@ public class Coin(int amount) : IItem
 public abstract class Junk : IInventoryItem
 {
     public abstract string Name { get; }
+    public int LuckBonus => 0;
     public char Symbol => Tiles.Unknown;
     public bool IsTwoHanded => false;
     public void OnPickUp(GameState state)
     {
         state.Player.Backpack.Add(this);
         state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
+        GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} picked up {Name}.");
         state.Log = $"Picked up junk: {Name}";
     }
     public void Equip(Player player, HandSide side)
@@ -2310,7 +2346,7 @@ public abstract class Junk : IInventoryItem
         else player.EquipRightHand(this);
     }
 
-    public void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitNonWeapon();
+    public void Accept(IAttackVisitor visitor) => visitor.VisitNonWeapon();
 }
 
 /// <summary> 
@@ -2329,14 +2365,40 @@ public class OldBone : Junk { public override string Name => "Old Bone"; }
 public class BrokenGlass : Junk { public override string Name => "Broken Glass"; }
 
 
---- Файл: ./Events/EventData.cs ---
+--- Файл: ./Events/Observer.cs ---
 namespace AlchemyRPG;
 
-public static class EventTypes
+public interface IObserver<T>
 {
-    public const string Noise = "Noise";
-    public const string EnemyDeath = "EnemyDeath";
+    void OnNext(T data);
 }
+
+public class Subject<T>
+{
+    private readonly List<IObserver<T>> _observers = new();
+
+    public void Subscribe(IObserver<T> observer)
+    {
+        if (!_observers.Contains(observer))
+            _observers.Add(observer);
+    }
+
+    public void Unsubscribe(IObserver<T> observer)
+    {
+        _observers.Remove(observer);
+    }
+
+    public void Notify(T data)
+    {
+        foreach (var observer in _observers.ToList()) 
+        {
+            observer.OnNext(data);
+        }
+    }
+}
+
+--- Файл: ./Events/EventData.cs ---
+namespace AlchemyRPG;
 
 public class NoiseData
 {
@@ -2359,67 +2421,6 @@ public class EnemyDeathData
     public EnemyDeathData(string species)
     {
         Species = species;
-    }
-}
-
---- Файл: ./Events/IEventListener.cs ---
-namespace AlchemyRPG;
-
-/// <summary>
-/// The Observer interface. 
-/// All classes that want to react to events must implement this.
-/// </summary>
-public interface IEventListener
-{
-    void Update(string eventType, object data);
-}
-
---- Файл: ./Events/EventManager.cs ---
-using System.Collections.Generic;
-using System.Linq;
-
-namespace AlchemyRPG;
-
-/// <summary>
-/// The Event Manager (Publisher). Stores a list of subscribers by event types.
-/// Allows subscribing, unsubscribing, and notifying listeners dynamically.
-/// </summary>
-public class EventManager
-{
-    private readonly Dictionary<string, List<IEventListener>> _listeners = new();
-
-    public void Subscribe(string eventType, IEventListener listener)
-    {
-        if (!_listeners.ContainsKey(eventType))
-        {
-            _listeners[eventType] = new List<IEventListener>();
-        }
-        
-        if (!_listeners[eventType].Contains(listener))
-        {
-            _listeners[eventType].Add(listener);
-        }
-    }
-
-    public void Unsubscribe(string eventType, IEventListener listener)
-    {
-        if (_listeners.ContainsKey(eventType))
-        {
-            _listeners[eventType].Remove(listener);
-        }
-    }
-
-    public void Notify(string eventType, object data)
-    {
-        if (_listeners.ContainsKey(eventType))
-        {
-            var currentListeners = _listeners[eventType].ToList();
-            
-            foreach (var listener in currentListeners)
-            {
-                listener.Update(eventType, data);
-            }
-        }
     }
 }
 
@@ -2479,6 +2480,7 @@ public interface ILogger
     void Log(LogType type, string message);
     IReadOnlyList<LogEntry> GetFullMemoryBuffer();
     IReadOnlyList<LogEntry> GetRecentLogs(int count);
+    string? GetLogFilePath();
 }
 
 --- Файл: ./Logging/LogType.cs ---
@@ -2505,6 +2507,8 @@ public enum LogType
 /// </summary>
 public class FileLogger : ILogger, IDisposable
 {
+    public string? GetLogFilePath() => SavedFilePath;
+    
     /// <summary>
     /// In-memory FIFO buffer storing the most recent <see cref="_maxBufferSize"/> <see cref="LogEntry"/> instances.
     /// This buffer is intended for quick UI access without reading the log file from disk.
@@ -2611,129 +2615,158 @@ public static class GameLogger
     public static ILogger Instance => _instance ?? throw new System.Exception("Logger not initialized!");
 }
 
---- Файл: ./Entities/Enemy.cs ---
+--- Файл: ./Entities/Enemy/Enemy.cs ---
 ﻿using System;
 
 namespace AlchemyRPG;
 
 /// <summary>
-/// Implements the <see cref="IEventListener"/> interface to participate in the Event Bus (Observer pattern).
-/// Inherits from <see cref="Entity"/> to allow integration with the existing map grid system, 
-/// meaning enemies occupy tiles just like items, but trigger combat interactions.
+/// Implements the strictly typed IObserver<T> interfaces.
 /// </summary>
-public class Enemy : Entity, IEventListener
+public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
 {
-    /// <summary>
-    /// Gets the biological or magical classification of the enemy (e.g., "Goblin", "Skeleton").
-    /// Used for pack-behavior and event filtering.
-    /// </summary>
     public string Species { get; }
-
-    /// <summary>
-    /// Gets the base attack power of the enemy. 
-    /// Includes a private setter to allow dynamic stat changes based on kinsman deaths.
-    /// </summary>
     public int AttackDamage { get; private set; }
-
-    /// <summary>
-    /// Gets the defensive armor rating of the enemy.
-    /// </summary>
     public int Armor { get; }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Enemy"/> class and subscribes to global events.
-    /// </summary>
-    public Enemy(string name, string species, int health, int attackDamage, int armor)
+    private readonly IKinsmanDeathBehavior _deathBehavior;
+
+    private readonly Subject<NoiseData> _noiseEvents;
+    private readonly Subject<EnemyDeathData> _deathEvents;
+
+    public Enemy(
+        string name,
+        string species,
+        int health,
+        int attackDamage,
+        int armor,
+        Subject<NoiseData> noiseEvents,
+        Subject<EnemyDeathData> deathEvents,
+        IKinsmanDeathBehavior? deathBehavior = null)
         : base(name, Tiles.Enemy, health)
     {
         Species = species;
         AttackDamage = attackDamage;
         Armor = armor;
 
-        Game.Events.Subscribe(EventTypes.Noise, this);
-        Game.Events.Subscribe(EventTypes.EnemyDeath, this);
+        _noiseEvents = noiseEvents;
+        _deathEvents = deathEvents;
+
+        _deathBehavior = deathBehavior ?? new NeutralBehavior();
+
+        _noiseEvents.Subscribe(this);
+        _deathEvents.Subscribe(this);
     }
 
-    /// <summary>
-    /// Fulfills the <see cref="IEventListener.Update"/> contract.
-    /// Handles incoming notifications from the global Event Manager.
-    /// </summary>
-    public void Update(string eventType, object data)
+    public void ModifyAttackDamage(int delta)
     {
-        if (eventType == EventTypes.Noise && data is NoiseData noise)
-        {
-            if (noise.ReachedTiles.TryGetValue((this.X, this.Y), out int distanceToSource))
-            {
-                GameLogger.Instance.Log(LogType.System,
-                    $"[{Species} at {X},{Y}] Heard a noise from {noise.SourceX},{noise.SourceY} (Distance: {distanceToSource} steps).");
-            }
-        }
-        else if (eventType == EventTypes.EnemyDeath && data is EnemyDeathData deathInfo)
-        {
-            if (deathInfo.Species == this.Species)
-            {
-                ReactToKinsmanDeath();
-            }
-        }
+        AttackDamage = Math.Max(0, AttackDamage + delta);
     }
 
-    /// <summary>
-    /// Adjusts combat stats dynamically based on the species' specific behavioral traits.
-    /// </summary>
     private void ReactToKinsmanDeath()
     {
-        if (Species == "Goblin")
+        _deathBehavior.React(this);
+    }
+
+    public void OnNext(NoiseData noise)
+    {
+        if (noise.ReachedTiles.TryGetValue((this.X, this.Y), out int distanceToSource))
         {
-            AttackDamage = Math.Max(0, AttackDamage - 2);
-            GameLogger.Instance.Log(LogType.System, $"{Name} trembles in fear! Attack decreased.");
+            GameLogger.Instance.Log(LogType.System,
+                $"[{Species} at {X},{Y}] Heard a noise from {noise.SourceX},{noise.SourceY} (Distance: {distanceToSource} steps).");
         }
-        else if (Species == "Skeleton")
+    }
+
+    public void OnNext(EnemyDeathData deathInfo)
+    {
+        if (deathInfo.Species == this.Species)
         {
-            AttackDamage += 3;
-            GameLogger.Instance.Log(LogType.System, $"{Name}'s bones rattle with rage! Attack increased.");
+            ReactToKinsmanDeath();
         }
     }
 
     /// <summary>
     /// Safely prepares the enemy for removal from the game world.
-    /// Must be called by the Combat System when the enemy's health reaches zero.
     /// </summary>
     public void TriggerDeathProcessing()
     {
-        Game.Events.Notify(EventTypes.EnemyDeath, new EnemyDeathData(this.Species));
+        _deathEvents.Notify(new EnemyDeathData(this.Species));
 
-        Game.Events.Unsubscribe(EventTypes.Noise, this);
-        Game.Events.Unsubscribe(EventTypes.EnemyDeath, this);
+        _noiseEvents.Unsubscribe(this);
+        _deathEvents.Unsubscribe(this);
     }
 
-    /// <summary>
-    /// Performs a random movement to an adjacent valid tile.
-    /// This simulates active wandering through the dungeon corridors.
-    /// </summary>
-    /// <param name="map">The current game map to check for walls and obstacles.</param>
-    /// <param name="rand">The random number generator.</param>
-    public void MoveRandomly(Map map, Random rand)
+    public void Update(GameState state, Random rand)
     {
-        // 4 possible directions: Up, Down, Left, Right
+        if (IsEngagedInCombat(state.Player)) return;
+        MoveRandomly(state.Map, rand);
+    }
+
+    private bool IsEngagedInCombat(Player player)
+    {
+        return Math.Abs(this.X - player.X) <= 1 && Math.Abs(this.Y - player.Y) <= 1;
+    }
+
+    private void MoveRandomly(Map map, Random rand)
+    {
         int[] dx = { 0, 0, -1, 1 };
         int[] dy = { -1, 1, 0, 0 };
 
-        // Pick a random direction
         int direction = rand.Next(4);
         int newX = X + dx[direction];
         int newY = Y + dy[direction];
 
-        // Ensure the new tile is a floor (not a wall)
-        // Also ensure the enemy doesn't step out of bounds
         if (newX >= 0 && newX < map.Width && newY >= 0 && newY < map.Height)
         {
             if (map.IsWalkable(newX, newY))
             {
-                // Update the enemy's coordinates
-                X = newX;
-                Y = newY;
+                SetPosition(newX, newY);
             }
         }
+    }
+
+    public override void TakeDamage(int amount)
+    {
+        bool wasDead = IsDead;
+        base.TakeDamage(amount);
+
+        if (IsDead && !wasDead)
+        {
+            TriggerDeathProcessing();
+        }
+    }
+}
+
+--- Файл: ./Entities/Enemy/IKinsmanDeathBehavior.cs ---
+namespace AlchemyRPG;
+
+public interface IKinsmanDeathBehavior
+{
+    void React(Enemy enemy);
+}
+
+public class CowardlyBehavior : IKinsmanDeathBehavior
+{
+    public void React(Enemy enemy)
+    {
+        enemy.ModifyAttackDamage(-2);
+        GameLogger.Instance.Log(LogType.System, $"{enemy.Name} trembles in fear! Attack decreased.");
+    }
+}
+
+public class AggressiveBehavior : IKinsmanDeathBehavior
+{
+    public void React(Enemy enemy)
+    {
+        enemy.ModifyAttackDamage(3);
+        GameLogger.Instance.Log(LogType.System, $"{enemy.Name} rages! Attack increased.");
+    }
+}
+
+public class NeutralBehavior : IKinsmanDeathBehavior
+{
+    public void React(Enemy enemy)
+    {
     }
 }
 
@@ -2746,7 +2779,7 @@ namespace AlchemyRPG;
 /// </summary>
 /// <param name="startX">The initial horizontal position of the player on the map.</param>
 /// <param name="startY">The initial vertical position of the player on the map.</param>
-public class Player: Entity
+public class Player : Entity
 {
     // RPG Statistics
 
@@ -2770,8 +2803,8 @@ public class Player: Entity
         get
         {
             int bonus = 0;
-            if (RightHand is IWeapon rw) bonus += rw.LuckBonus;
-            if (LeftHand is IWeapon lw) bonus += lw.LuckBonus;
+            if (RightHand != null) bonus += RightHand.LuckBonus;
+            if (LeftHand != null) bonus += LeftHand.LuckBonus;
             return Luck + bonus;
         }
     }
@@ -2930,14 +2963,25 @@ public abstract class Entity
     public string Name { get; protected set; }
     public char Symbol { get; protected set; }
 
-    public int Health { get; set; }
-    public int X { get; set; }
-    public int Y { get; set; }
+    public int Health { get; private set; }
+    public int X { get; protected set; }
+    public int Y { get; protected set; }
+    public bool IsDead => Health <= 0;
 
     protected Entity(string name, char symbol, int health)
     {
         Name = name;
         Symbol = symbol;
         Health = health;
+    }
+    public void SetPosition(int x, int y)
+    {
+        X = x;
+        Y = y;
+    }
+    public virtual void TakeDamage(int amount)
+    {
+        Health -= amount;
+        if (Health < 0) Health = 0;
     }
 }

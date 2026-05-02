@@ -29,6 +29,6 @@ public interface IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to determine the properties of the created enemy. Cannot be null.</param>
     /// <returns>An object that implements the IEnemy interface representing the generated enemy.</returns>
-    Enemy CreateEnemy(int index, EventManager events);
+    Enemy CreateEnemy(int index, Subject<NoiseData> NoiseEvents, Subject<EnemyDeathData> DeathEvents);
      void ConfigureBuilder(IDungeonBuilder builder);
 }

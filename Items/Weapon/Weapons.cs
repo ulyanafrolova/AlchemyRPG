@@ -9,7 +9,7 @@ public class Dagger : BaseLightWeapon
     public override string Name => "Dagger";
     public override int Damage => 5;
     public override bool IsTwoHanded => false;
-    public override void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitLightWeapon((IWeapon)context);
+    public override void Accept(IAttackVisitor visitor) => visitor.VisitLightWeapon(this);
 }
 
 /// <summary>
@@ -20,7 +20,7 @@ public class Sword : BaseHeavyWeapon
     public override string Name => "Sword";
     public override int Damage => 10;
     public override bool IsTwoHanded => false;
-    public override void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitHeavyWeapon((IWeapon)context);
+    public override void Accept(IAttackVisitor visitor) => visitor.VisitHeavyWeapon(this);
 }
 
 /// <summary>
@@ -31,7 +31,7 @@ public class TwoHandedAxe : BaseHeavyWeapon
     public override string Name => "Two-Handed Axe";
     public override int Damage => 25;
     public override bool IsTwoHanded => true;
-    public override void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitHeavyWeapon((IWeapon)context);
+    public override void Accept(IAttackVisitor visitor) => visitor.VisitHeavyWeapon(this);
 }
 
 /// <summary>
@@ -42,5 +42,5 @@ public class MagicStaff : BaseMagicWeapon
     public override string Name => "Magic Staff";
     public override int Damage => 8;
     public override bool IsTwoHanded => true;
-    public override void Accept(IAttackVisitor visitor, IInventoryItem context) => visitor.VisitMagicWeapon((IWeapon)context);
+    public override void Accept(IAttackVisitor visitor) => visitor.VisitMagicWeapon(this);
 }

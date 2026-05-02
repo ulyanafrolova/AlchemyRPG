@@ -70,7 +70,10 @@ public class InputHandler
             {
                 // Execution
                 command.Execute(state);
-                state.Log = ""; // Clear global prompt on success
+                if (!state.IsWaitingForSecondaryInput)
+                {
+                    state.Log = "";
+                }
             }
         }
         else
@@ -80,6 +83,6 @@ public class InputHandler
         }
 
         // Step 4: Continue the game
-        return true; 
+        return true;
     }
 }

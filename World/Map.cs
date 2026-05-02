@@ -58,8 +58,16 @@ public class Map
     /// <param name="x">The horizontal coordinate.</param>
     /// <param name="y">The vertical coordinate.</param>
     /// <returns>A list of items at the given position, or an empty list if none exist.</returns>
-    public List<IItem> GetItemsAt(int x, int y) => [.. _items.Where(i => i.X == x && i.Y == y).Select(i => i.Item)];
-
+    public List<IItem> GetItemsAt(int x, int y)
+    {
+        var result = new List<IItem>();
+        foreach (var itemData in _items)
+        {
+            if (itemData.X == x && itemData.Y == y)
+                result.Add(itemData.Item);
+        }
+        return result;
+    }
     /// <summary>
     /// Determines whether a specific coordinate is safe for the player to walk on.
     /// Checks grid boundaries to prevent IndexOutOfRange exceptions and ensures the tile is not a wall.
@@ -158,43 +166,6 @@ public class Map
             _ => (y >= 10 && y < 10 + p.Backpack.Count) ? $"[{y - 10}] {p.Backpack[y - 10].Name}" : ""
         };
     }
-
-    public Dictionary<(int x, int y), int> CalculateAcousticDistances(int startX, int startY, int maxRange)
-    {
-        var distances = new Dictionary<(int x, int y), int>();
-
-        var queue = new Queue<(int x, int y, int dist)>();
-
-        queue.Enqueue((startX, startY, 0));
-        distances[(startX, startY)] = 0;
-
-        int[] dx = { 0, 0, -1, 1 };
-        int[] dy = { -1, 1, 0, 0 };
-
-        while (queue.Count > 0)
-        {
-            var current = queue.Dequeue();
-
-            if (current.dist >= maxRange) continue;
-
-            for (int i = 0; i < 4; i++)
-            {
-                int nx = current.x + dx[i];
-                int ny = current.y + dy[i];
-
-                if (nx >= 0 && nx < Width && ny >= 0 && ny < Height && IsWalkable(nx, ny))
-                {
-                    if (!distances.ContainsKey((nx, ny)))
-                    {
-                        distances[(nx, ny)] = current.dist + 1;
-                        queue.Enqueue((nx, ny, current.dist + 1));
-                    }
-                }
-            }
-        }
-        return distances;
-    }
-
     public (int x, int y) GetRandomWalkableTile(Random rand)
     {
         int spawnX, spawnY;
@@ -202,8 +173,8 @@ public class Map
         {
             spawnX = rand.Next(1, Width - 1);
             spawnY = rand.Next(1, Height - 1);
-        } 
-        while (!IsWalkable(spawnX, spawnY)); 
+        }
+        while (!IsWalkable(spawnX, spawnY));
         return (spawnX, spawnY);
     }
 }

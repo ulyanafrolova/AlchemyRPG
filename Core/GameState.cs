@@ -46,5 +46,16 @@ public class GameState
     /// </summary>
     public bool IsGameOver { get; set; } = false;
 
-    public required EventManager Events { get; set; }
+    public required Subject<NoiseData> NoiseEvents { get; set; }
+    public required Subject<EnemyDeathData> DeathEvents { get; set; }
+
+    /// <summary>
+    /// If true, the game is waiting for a secondary key press (e.g., direction for attack).
+    /// </summary>
+    public bool IsWaitingForSecondaryInput { get; set; } = false;
+
+    /// <summary>
+    /// A delegate (action) that will be executed when the secondary key is pressed.
+    /// </summary>
+    public Action<ConsoleKey>? PendingAction { get; set; }
 }

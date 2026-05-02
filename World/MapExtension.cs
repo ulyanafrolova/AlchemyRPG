@@ -15,27 +15,14 @@ public static class MapExtensions
     /// <param name="item">The item or entity to spawn.</param>
     public static void SpawnItemRandomly(this Map map, Random rand, IItem item)
     {
-        int x, y;
-        do
-        {
-            x = rand.Next(1, map.Width - 1);
-            y = rand.Next(1, map.Height - 1);
-        } while (map.Grid[y, x] != Tiles.Floor || map.GetItemsAt(x, y).Count > 0);
-
+        var (x, y) = map.GetRandomWalkableTile(rand);
         map.AddItem(x, y, item);
     }
+
     public static void SpawnEnemyRandomly(this Map map, Random rand, Enemy enemy)
     {
-        int x, y;
-        do
-        {
-            x = rand.Next(1, map.Width - 1);
-            y = rand.Next(1, map.Height - 1);
-        } while (map.Grid[y, x] != Tiles.Floor || map.GetItemsAt(x, y).Count > 0 || map.GetEnemyAt(x, y) != null);
-
-        enemy.X = x;
-        enemy.Y = y;
-
+        var (x, y) = map.GetRandomWalkableTile(rand);
+        enemy.SetPosition(x, y);
         map.Enemies.Add(enemy);
     }
 }
