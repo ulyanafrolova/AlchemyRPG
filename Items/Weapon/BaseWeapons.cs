@@ -1,29 +1,44 @@
+using System;
+
 namespace AlchemyRPG;
 
 /// <summary>
-/// A base abstract class for all weapons.
-/// It implements picking up and equipping logic 
+/// The abstract base class for all weapons in the game.
+/// Provides shared boilerplate logic for inventory management and equipping, 
+/// while enforcing the implementation of the Visitor pattern for combat and network mapping.
 /// </summary>
 public abstract class BaseWeapon : IWeapon
 {
+    /// <summary>Gets the display name of the weapon.</summary>
     public abstract string Name { get; }
-    public char Symbol => Tiles.Weapon;
+    
+    /// <summary>Gets the base damage output of the weapon.</summary>
     public abstract int Damage { get; }
+    
+    /// <summary>Gets the luck modifier provided by the weapon. Defaults to 0.</summary>
     public virtual int LuckBonus => 0;
+    
+    /// <summary>Gets the strength modifier provided by the weapon. Defaults to 0.</summary>
     public virtual int StrengthBonus => 0;
-    public virtual int NoiseRange => 3;
+    
+    /// <summary>Indicates whether the weapon occupies both hand slots.</summary>
     public abstract bool IsTwoHanded { get; }
 
+    /// <summary>Gets the unique identifier for this specific weapon instance.</summary>
+    public Guid Id { get; } = Guid.NewGuid();
+
     /// <summary>
-    /// Moves the weapon from the map floor into the player's backpack.
+    /// Handles the logic when the player picks up the weapon from the map.
+    /// Transfers the weapon from the map grid into the player's backpack.
     /// </summary>
-    public void OnPickUp(GameState state)
+    public void OnPickUp(GameState state, Player executor)
     {
-        state.Player.Backpack.Add(this);
-        state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
+        executor.AddToBackpack(this);
+        state.Map.RemoveItem(executor.X, executor.Y, this);
     }
+
     /// <summary>
-    /// Handles the rules for putting the weapon into the player's hands.
+    /// Handles the logic of equipping the weapon to the appropriate hand(s).
     /// </summary>
     public void Equip(Player player, HandSide side)
     {
@@ -31,41 +46,42 @@ public abstract class BaseWeapon : IWeapon
         else if (side == HandSide.Left) player.EquipLeftHand(this);
         else player.EquipRightHand(this);
     }
+    
     /// <summary>
-    /// We force every specific weapon class to implement this so it can route the attack 
-    /// to the correct mathematical formula without using 'switch' statements.
+    /// Accepts a combat visitor to calculate damage and defense based on the weapon's physical type.
     /// </summary>
     public abstract void Accept(IAttackVisitor visitor);
+    
+    /// <summary>
+    /// Accepts a generic item visitor, forcing derived classes to explicitly resolve their type 
+    /// for DTO mapping and symbol rendering.
+    /// </summary>
+    public abstract T Accept<T>(IItemVisitor<T> visitor); 
 }
 
 /// <summary>
 /// Intermediate base class for all light weapons.
-/// Encapsulates shared behavior so child classes stay clean (DRY principle).
+/// Automatically resolves the generic visitor dispatch to the Light Weapon category.
 /// </summary>
 public abstract class BaseLightWeapon : BaseWeapon, ILightWeapon
 {
-    /// <summary>
-    /// All light weapons are nearly silent by default.
-    /// Child classes no longer need to override this!
-    /// </summary>
-    public override int NoiseRange => 1;
+    public override T Accept<T>(IItemVisitor<T> visitor) => visitor.VisitLightWeapon(this);
 }
 
 /// <summary>
 /// Intermediate base class for all magic weapons.
+/// Automatically resolves the generic visitor dispatch to the Magic Weapon category.
 /// </summary>
 public abstract class BaseMagicWeapon : BaseWeapon, IMagicWeapon
 {
-    public override int NoiseRange => 3;
+    public override T Accept<T>(IItemVisitor<T> visitor) => visitor.VisitMagicWeapon(this);
 }
 
 /// <summary>
 /// Intermediate base class for all heavy weapons.
+/// Automatically resolves the generic visitor dispatch to the Heavy Weapon category.
 /// </summary>
 public abstract class BaseHeavyWeapon : BaseWeapon, IHeavyWeapon
 {
-    /// <summary>
-    /// All heavy weapons are loud by default.
-    /// </summary>
-    public override int NoiseRange => 5;
+    public override T Accept<T>(IItemVisitor<T> visitor) => visitor.VisitHeavyWeapon(this);
 }

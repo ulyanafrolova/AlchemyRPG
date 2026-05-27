@@ -10,23 +10,20 @@ public enum HandSide { Left, Right }
 /// </summary>
 public interface IItem
 {
-    int NoiseRange { get; }
+    Guid Id { get; }
 
     /// <summary> 
     /// Gets the display name of the item. 
     /// </summary>
     string Name { get; }
 
-    /// <summary> 
-    /// Gets the character symbol used to represent this item on the map grid. 
-    /// </summary>
-    char Symbol { get; }
-
     /// <summary>
     /// Executes the logic when the player walks over or interacts with this item.
     /// </summary>
     /// <param name="state">The current game state, used to modify player stats or update the map.</param>
-    void OnPickUp(GameState state);
+    void OnPickUp(GameState state, Player executor);
+
+    T Accept<T>(IItemVisitor<T> visitor);
 }
 
 /// <summary>
@@ -49,10 +46,5 @@ public interface IInventoryItem : IItem
     /// <param name="side">The requested hand to hold the item.</param>
     void Equip(Player player, HandSide side);
 
-    /// <summary>
-    /// Accepts a visitor that performs an operation on this inventory item within the specified context.
-    /// </summary>
-    /// <param name="visitor">The visitor that defines the operation to perform on the inventory item</param>
-    /// <param name="context">The context in which the visitor operates</param>
     void Accept(IAttackVisitor visitor);
 }

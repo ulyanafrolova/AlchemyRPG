@@ -8,16 +8,16 @@
 public class Gold(int amount) : IItem
 {
     public string Name => "Gold";
-    public char Symbol => Tiles.Gold;
     private readonly int _amount = amount;
-    public int NoiseRange => 0;
+    public Guid Id { get; } = Guid.NewGuid();
 
-    public void OnPickUp(GameState state)
+    public void OnPickUp(GameState state, Player executor)
     {
-        state.Player.Gold += _amount;
-        state.Log = $"Picked up {_amount} gold.";
-        state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
+        executor.AddGold(_amount);
+        state.EventLog.Push($"Picked up {_amount} gold.");
+        state.Map.RemoveItem(executor.X, executor.Y, this);
     }
+    public T Accept<T>(IItemVisitor<T> visitor) => visitor.VisitGold(this);
 }
 
 /// <summary>
@@ -28,14 +28,16 @@ public class Gold(int amount) : IItem
 public class Coin(int amount) : IItem
 {
     public string Name => "Coin";
-    public int NoiseRange => 0;
-    public char Symbol => Tiles.Coin;
     private readonly int _amount = amount;
 
-    public void OnPickUp(GameState state)
+    public Guid Id { get; } = Guid.NewGuid();
+
+    public void OnPickUp(GameState state, Player executor)
     {
-        state.Player.Coins += _amount;
-        state.Log = $"Picked up {_amount} coins.";
-        state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
+        executor.AddCoins(_amount);
+        state.EventLog.Push($"{executor.Name} picked up {_amount} coins.");
+        state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"{executor.Name} picked up {_amount} coins."));
+        state.Map.RemoveItem(executor.X, executor.Y, this);
     }
+    public T Accept<T>(IItemVisitor<T> visitor) => visitor.VisitCoin(this);
 }

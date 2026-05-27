@@ -7,37 +7,28 @@
 public abstract class Junk : IInventoryItem
 {
     public abstract string Name { get; }
+    public Guid Id { get; } = Guid.NewGuid();
     public int LuckBonus => 0;
-    public virtual int NoiseRange => 0;
-    public char Symbol => Tiles.Unknown;
     public bool IsTwoHanded => false;
-    public void OnPickUp(GameState state)
+
+    public void OnPickUp(GameState state, Player executor)
     {
-        state.Player.Backpack.Add(this);
-        state.Map.RemoveItem(state.Player.X, state.Player.Y, this);
-        GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} picked up {Name}.");
-        state.Log = $"Picked up junk: {Name}";
+        executor.AddToBackpack(this);
+        state.Map.RemoveItem(executor.X, executor.Y, this);
+        state.EventLog.Push($"Picked up junk: {Name}");
+        state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"{executor.Name} picked up {Name}"));
     }
+
     public void Equip(Player player, HandSide side)
     {
         if (side == HandSide.Left) player.EquipLeftHand(this);
         else player.EquipRightHand(this);
     }
 
+    public T Accept<T>(IItemVisitor<T> visitor) => visitor.VisitJunk(this);
     public void Accept(IAttackVisitor visitor) => visitor.VisitNonWeapon();
 }
 
-/// <summary> 
-/// A piece of junk representing a skull.
-/// </summary>
 public class Skull : Junk { public override string Name => "Skull"; }
-
-/// <summary> 
-/// A piece of junk representing an old bone. 
-/// </summary>
 public class OldBone : Junk { public override string Name => "Old Bone"; }
-
-/// <summary> 
-/// A piece of junk representing broken glass. 
-/// </summary>
 public class BrokenGlass : Junk { public override string Name => "Broken Glass"; }
