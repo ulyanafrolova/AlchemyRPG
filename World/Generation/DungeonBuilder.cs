@@ -1,8 +1,9 @@
 ﻿namespace AlchemyRPG;
 
 /// <summary>
-/// Implementation of the IDungeonBuilder interface.
-/// aintain the map state and passes it along 
+/// A concrete implementation of the <see cref="IDungeonBuilder"/> interface.
+/// This class manages the construction process of a <see cref="Map"/> by maintaining its state, 
+/// applying modular modifications, and tracking contextual UI instructions for the player.
 /// </summary>
 public class DungeonBuilder : IDungeonBuilder
 {
@@ -11,18 +12,23 @@ public class DungeonBuilder : IDungeonBuilder
     private int _height;
     private readonly Random _rand = new();
 
-    // Tutorial text
+    /// <summary>
+    /// A running list of tutorial lines used to assemble the player's "How to Play" manual.
+    /// </summary>
     private readonly List<string> _tutorialText = new() { "--- DUNGEON INSTRUCTIONS ---" };
 
     /// <summary>
-    /// A collection that stores unique tutorial instructions.
-    /// We use a HashSet to prevent duplicate instructions 
-    /// (e.g., if multiple methods add the "[E] Pick Up" prompt).
+    /// A set of unique control scheme strings. We use a <see cref="HashSet{T}"/> 
+    /// to prevent duplicate instructions if multiple modifiers attempt to register the same controls.
     /// </summary>
-    private readonly HashSet<string> _instructions = [$"[{Keybinds.MoveUp}{Keybinds.MoveDown}{Keybinds.MoveLeft}{Keybinds.MoveRight}] Move", $"[{Keybinds.Help}] Help", $"[{Keybinds.Journal}] Journal"];
+    private readonly HashSet<string> _instructions = [
+        $"[{Keybinds.MoveUp}{Keybinds.MoveDown}{Keybinds.MoveLeft}{Keybinds.MoveRight}] Move", 
+        $"[{Keybinds.Help}] Help", 
+        $"[{Keybinds.Journal}] Journal"
+    ];
 
     /// <summary>
-    /// Initializes the foundational grid of the map as completely empty (walkable floor).
+    /// Initializes a map grid composed entirely of walkable floor tiles.
     /// </summary>
     public IDungeonBuilder CreateEmpty(int width, int height)
     {
@@ -32,15 +38,15 @@ public class DungeonBuilder : IDungeonBuilder
 
         for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
-                _map.Grid[y, x] = Tiles.Floor;
+                _map.SetTileAt(x, y, TerrainType.Floor);
 
-        // Ensure the player cannot walk out of bounds
         AddBorders();
         return this;
     }
 
     /// <summary>
-    /// Initializes the foundational grid of the map as completely solid 
+    /// Initializes a map grid where every tile is a solid wall.
+    /// Used as a foundational canvas for modifiers that carve out rooms and corridors.
     /// </summary>
     public IDungeonBuilder CreateFilled(int width, int height)
     {
@@ -50,26 +56,27 @@ public class DungeonBuilder : IDungeonBuilder
 
         for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
-                _map.Grid[y, x] = Tiles.Wall;
+                _map.SetTileAt(x, y, TerrainType.Wall);
+
         return this;
     }
 
     /// <summary>
-    /// Executes the provided modifier against the current map state.
+    /// Applies a specific generation algorithm (modifier) to the current map state.
     /// </summary>
+    /// <param name="modifier">The strategy or algorithm to modify the map structure or population.</param>
+    /// <exception cref="InvalidOperationException">Thrown if called before <see cref="CreateEmpty"/> or <see cref="CreateFilled"/>.</exception>
     public IDungeonBuilder ApplyModifier(IDungeonModifier modifier)
     {
         if (_map == null)
-            throw new InvalidOperationException("CreateEmpty or CreateFilled must be called first!");
+            throw new InvalidOperationException("Initial building block (CreateEmpty or CreateFilled) must be called first!");
 
-        // Inject the current state into the modifier so it can perform its specific task
         modifier.Apply(_map, _instructions, _tutorialText, _rand);
-
         return this;
     }
 
     /// <summary>
-    /// Extracts the fully assembled map
+    /// Returns the completed map after the construction process is finalized.
     /// </summary>
     public Map GetMap()
     {
@@ -78,17 +85,17 @@ public class DungeonBuilder : IDungeonBuilder
     }
 
     /// <summary>
-    /// Generates the context-aware tutorial string.
+    /// Assembles all registered controls into a single displayable instruction string.
     /// </summary>
     public string GetInstructions() => "Controls: " + string.Join(" | ", _instructions);
 
     /// <summary>
-    /// Returns full game instruction.
+    /// Assembles the full tutorial manual from all registered narrative snippets.
     /// </summary>
     public string GetTutorialText() => string.Join("\n", _tutorialText);
 
     /// <summary>
-    /// Guarantees that the builder sequence is valid
+    /// Verifies that the builder has been properly initialized with a map.
     /// </summary>
     private void EnsureInitialized()
     {
@@ -97,13 +104,14 @@ public class DungeonBuilder : IDungeonBuilder
     }
 
     /// <summary>
-    /// Prevents array out-of-bounds exceptions when the player attempts to move off the screen
+    /// Enforces map boundaries by setting the outer perimeter of the grid to floor tiles 
+    /// (or walls, depending on the desired boundary collision behavior).
     /// </summary>
     private void AddBorders()
     {
         for (int y = 0; y < _height; y++)
             for (int x = 0; x < _width; x++)
                 if (y == 0 || y == _height - 1 || x == 0 || x == _width - 1)
-                    _map!.Grid[y, x] = Tiles.Wall;
+                    _map!.SetTileAt(x, y, TerrainType.Floor);
     }
 }
