@@ -1,30 +1,29 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace AlchemyRPG;
 
 /// <summary>
-/// Represents the main character controlled by the user.
-/// Manages the player's position, role-playing statistics, inventory, and equipment.
+/// Represents a human-controlled player character in the game world.
+/// Manages RPG statistics, inventory, equipment, and network-related interaction logs.
 /// </summary>
-/// <param name="startX">The initial horizontal position of the player on the map.</param>
-/// <param name="startY">The initial vertical position of the player on the map.</param>
-public class Player : Entity
+public class Player : Entity, IObserver<NoiseData>
 {
-    // RPG Statistics
+    private ISubject<PlayerHeardNoiseData>? _playerHeardNoiseEvents;
 
-    /// <summary> 
-    /// Gets the player's physical strength. 
-    /// </summary>
+    /// <summary>Gets the player's base physical strength.</summary>
     public int Strength { get; private set; } = 10;
-
-    /// <summary> 
-    /// Gets the player's agility and speed. 
-    /// </summary>
+    
+    /// <summary>Gets the player's base dexterity and speed.</summary>
     public int Dexterity { get; private set; } = 10;
-
-    /// <summary> 
-    /// Gets the player's luck. 
-    /// </summary>
+    
+    /// <summary>Gets the player's base luck.</summary>
     public int Luck { get; private set; } = 5;
 
+    /// <summary>
+    /// Gets the player's total calculated luck, including innate stats and bonuses from equipped items.
+    /// </summary>
     public int TotalLuck
     {
         get
@@ -36,144 +35,164 @@ public class Player : Entity
         }
     }
 
-    /// <summary> 
-    /// Gets the player's aggression level. 
-    /// </summary>
+    /// <summary>Gets the player's base aggression modifier for heavy attacks.</summary>
     public int Aggression { get; private set; } = 5;
-
-    /// <summary> 
-    /// Gets the player's wisdom. 
-    /// </summary>
+    
+    /// <summary>Gets the player's base wisdom for magical calculations.</summary>
     public int Wisdom { get; private set; } = 10;
+    
+    /// <summary>Gets the amount of standard coin currency the player holds.</summary>
+    public int Coins { get; private set; } = 0;
+    
+    /// <summary>Gets the amount of premium gold currency the player holds.</summary>
+    public int Gold { get; private set; } = 0;
 
-    // Currency & Inventory
+    /// <summary>Adds the specified amount of coins to the player's purse.</summary>
+    public void AddCoins(int amount) => Coins += amount;
+    
+    /// <summary>Adds the specified amount of gold to the player's purse.</summary>
+    public void AddGold(int amount) => Gold += amount;
 
-    /// <summary> 
-    /// Gets or sets the amount of standard coin currency the player holds. 
-    /// </summary>
-    public int Coins { get; set; } = 0;
+    private readonly List<IInventoryItem> _backpack = new();
+    
+    /// <summary>Gets a read-only view of the player's inventory items.</summary>
+    public IReadOnlyList<IInventoryItem> Backpack => _backpack.AsReadOnly();
 
-    /// <summary> 
-    /// Gets or sets the amount of premium gold currency the player holds. 
-    /// </summary>
-    public int Gold { get; set; } = 0;
-
-    /// <summary> 
-    /// A collection of items currently stored in the player's inventory. 
-    /// </summary>
-    public List<IInventoryItem> Backpack { get; private set; } = [];
-
-    /// <summary> 
-    /// The item currently held in the player's left hand. Null if empty. 
-    /// </summary>
+    /// <summary>Gets the item currently equipped in the player's left hand, if any.</summary>
     public IInventoryItem? LeftHand { get; private set; }
-
-    /// <summary> 
-    /// The item currently held in the player's right hand. Null if empty.
-    /// </summary>
+    
+    /// <summary>Gets the item currently equipped in the player's right hand, if any.</summary>
     public IInventoryItem? RightHand { get; private set; }
+    
+    /// <summary>Gets the current local UI feedback message for this specific player.</summary>
+    public string LogMessage { get; private set; } = "";
 
-    /// <summary> 
-    /// A temporary message indicating the result of the player's latest action. 
-    /// (e.g., picking up an item, equipping a weapon)
+    /// <summary>
+    /// Sets a temporary visual feedback message for the player (e.g., error prompts or interaction results).
     /// </summary>
-    public string LogMessage { get; set; } = "";
+    public void SetLogMessage(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return;
+        LogMessage = message;
+    }
 
-    public Player(string name, int startX, int startY) : base(name, Tiles.Player, 100)
+    /// <summary>
+    /// Clears the current visual feedback message. Usually called at the beginning of a server tick.
+    /// </summary>
+    public void ClearLogMessage()
+    {
+        LogMessage = string.Empty;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Player"/> class.
+    /// </summary>
+    /// <param name="name">The player's display name.</param>
+    /// <param name="startX">The initial horizontal starting coordinate.</param>
+    /// <param name="startY">The initial vertical starting coordinate.</param>
+    public Player(string name, int startX, int startY)
+        : base(name, 100)
     {
         X = startX;
         Y = startY;
     }
 
     /// <summary>
-    /// Updates the player's coordinates on the map.
+    /// Updates the player's coordinates by applying a delta offset.
     /// </summary>
-    /// <param name="dx">The change in the X direction (horizontal).</param>
-    /// <param name="dy">The change in the Y direction (vertical).</param>
-    public void Move(int dx, int dy)
+    public void Move(int dx, int dy) { X += dx; Y += dy; }
+
+    /// <summary>
+    /// Directly inserts an item into the player's backpack.
+    /// </summary>
+    public void AddToBackpack(IInventoryItem item) => _backpack.Add(item);
+
+    /// <summary>
+    /// Attempts to equip a specific item from the backpack to the specified hand.
+    /// </summary>
+    /// <param name="itemId">The unique identifier of the item.</param>
+    /// <param name="side">The hand to equip the item into.</param>
+    public void TryEquipFromBackpack(Guid itemId, HandSide side)
     {
-        X += dx;
-        Y += dy;
+        var item = _backpack.FirstOrDefault(i => i.Id == itemId);
+        if (item != null) item.Equip(this, side);
     }
 
     /// <summary>
-    /// Attempts to equip an item from the backpack to the specified hand.
-    /// Delegates the actual equipping logic to the item itself.
+    /// Removes a specified item from the backpack and unequips it if currently held.
     /// </summary>
-    /// <param name="index">The index of the item in the backpack.</param>
-    /// <param name="side">The requested hand to equip the item to.</param>
-    public void TryEquipFromBackpack(int index, HandSide side)
+    /// <returns>The removed item, or null if the item was not found.</returns>
+    public IInventoryItem? DropItem(Guid itemId)
     {
-        if (index >= 0 && index < Backpack.Count)
+        var item = _backpack.FirstOrDefault(i => i.Id == itemId);
+        if (item != null)
         {
-            var item = Backpack[index];
-            item.Equip(this, side);
+            _backpack.Remove(item);
+            if (LeftHand == item) LeftHand = null;
+            if (RightHand == item) RightHand = null;
         }
+        return item;
     }
 
     /// <summary>
-    /// Equips a given item strictly to the left hand.
-    /// Automatically handles un-equipping two-handed weapons from the right hand 
-    /// to prevent holding a two-handed weapon in one hand.
+    /// Equips the item exclusively to the left hand, safely clearing two-handed holds.
     /// </summary>
-    /// <param name="item">The item to be equipped.</param>
     public void EquipLeftHand(IInventoryItem item)
     {
-        if (RightHand != null && RightHand.IsTwoHanded)
-        {
-            RightHand = null;
-        }
+        if (RightHand != null && RightHand.IsTwoHanded) RightHand = null;
         LeftHand = item;
         if (RightHand == item) RightHand = null;
-
-        GameLogger.Instance.Log(LogType.Loot, $"{Name} equipped to LEFT hand: {item.Name}");
     }
 
     /// <summary>
-    /// Equips a given item strictly to the right hand.
-    /// Automatically handles un-equipping two-handed weapons from the left hand.
+    /// Equips the item exclusively to the right hand, safely clearing two-handed holds.
     /// </summary>
-    /// <param name="item">The item to be equipped.</param>
     public void EquipRightHand(IInventoryItem item)
     {
-        if (LeftHand != null && LeftHand.IsTwoHanded)
-        {
-            LeftHand = null;
-        }
-
+        if (LeftHand != null && LeftHand.IsTwoHanded) LeftHand = null;
         RightHand = item;
         if (LeftHand == item) LeftHand = null;
-
-        GameLogger.Instance.Log(LogType.Loot, $"{Name} equipped to RIGHT hand: {item.Name}");
     }
 
     /// <summary>
-    /// Equips a two-handed weapon, occupying both the left and right hand slots simultaneously.
+    /// Equips a two-handed weapon, occupying both hand slots simultaneously.
     /// </summary>
-    /// <param name="item">The two-handed item to be equipped.</param>
     public void EquipTwoHanded(IInventoryItem item)
     {
         LeftHand = item;
         RightHand = item;
-        GameLogger.Instance.Log(LogType.Loot, $"{Name} equipped two-handed: {item.Name}");
     }
 
     /// <summary>
-    /// Removes an item from the player's backpack and unequips it if currently held.
+    /// Wires the player into the acoustic event system so they can hear noises.
     /// </summary>
-    /// <param name="index">The inventory index of the item to drop.</param>
-    /// <returns>The dropped item, or null if the index was invalid.</returns>
-    public IInventoryItem? DropItem(int index)
+    public void InitializeHearing(ISubject<NoiseData> noiseEvents, ISubject<PlayerHeardNoiseData> heardNoiseEvents)
     {
-        if (index >= 0 && index < Backpack.Count)
+        _playerHeardNoiseEvents = heardNoiseEvents;
+        noiseEvents.Subscribe(this);
+    }
+
+    /// <summary>
+    /// Handles incoming noise events and notifies the player-specific hearing bus if the noise reaches them.
+    /// </summary>
+    public void OnNext(NoiseData noise)
+    {
+        // Players ignore noises originating precisely from their own tile
+        if (this.X == noise.SourceX && this.Y == noise.SourceY) return;
+
+        if (noise.ReachedTiles.TryGetValue((this.X, this.Y), out int distance))
         {
-            var item = Backpack[index];
-            Backpack.RemoveAt(index);
-            GameLogger.Instance.Log(LogType.Loot, $"{Name} dropped: {item.Name}");
-            if (LeftHand == item) LeftHand = null;
-            if (RightHand == item) RightHand = null;
-            return item;
+            _playerHeardNoiseEvents?.Notify(
+           new PlayerHeardNoiseData(this.Name, this.X, this.Y,
+               noise.SourceX, noise.SourceY, distance));
         }
-        return null;
+    }
+
+    /// <summary>
+    /// Safely detaches the player from the acoustic event system upon disconnection.
+    /// </summary>
+    public void TeardownHearing(ISubject<NoiseData> noiseEvents)
+    {
+        noiseEvents.Unsubscribe(this);
     }
 }
