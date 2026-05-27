@@ -1,61 +1,90 @@
 namespace AlchemyRPG;
 
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+
 /// <summary>
-/// Represents the current global state of the game.
-/// This class acts as a data container passed around to different objects 
-/// so they can interact with the player, the map, and the event log.
+/// Represents the authoritative domain state of the entire game world.
+/// This object serves as the core data container that the GameEngine operates on.
 /// </summary>
 public class GameState
 {
     /// <summary>
-    /// Gets or sets the configuration settings for the game
+    /// Gets the immutable configuration settings applied to the current session.
     /// </summary>
-    public required GameConfig Config { get; set; }
-    /// <summary>
-    /// Gets or sets the main player character. 
-    /// The 'required' modifier ensures the player is initialized when the state is created.
-    /// </summary>
-    public required Player Player { get; set; }
+    public required GameConfig Config { get; init; }
 
     /// <summary>
-    /// Gets or sets the game map, including the grid layout and all items on the ground.
-    /// The 'required' modifier ensures the map is initialized when the state is created.
+    /// Gets the physical structure of the dungeon, including the terrain grid, entities, and items.
     /// </summary>
-    public required Map Map { get; set; }
+    public required Map Map { get; init; }
 
     /// <summary>
-    /// Gets or sets the system log message displayed at the bottom of the screen.
-    /// Used to inform the player about game events, errors, or interaction feedback.
+    /// Gets the dynamically generated tutorial text detailing lore and gameplay rules for the active theme.
     /// </summary>
-    public string Log { get; set; } = "Welcome to the game!";
+    public string TutorialText { get; init; } = "";
 
     /// <summary>
-    /// Gets or sets the dynamically generated tutorial instructions displayed to the player.
-    /// These instructions adapt based on the contents of the current dungeon 
-    /// (e.g., hiding the 'Pick Up' prompt if no items were spawned during map generation).
+    /// Gets the dynamically generated control instructions based on features present in the dungeon.
     /// </summary>
-    public string Instructions { get; set; } = "";
+    public string ControlsText { get; init; } = "";
 
     /// <summary>
-    /// Stores the dynamically generated "How to play" text (rules and lore).
+    /// Gets the service responsible for calculating sound propagation paths and distances.
     /// </summary>
-    public string TutorialText { get; set; } = "";
+    public required IAcousticService Acoustic { get; init; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the game has ended
+    /// The event bus for broadcasting raw noise generation coordinates.
     /// </summary>
-    public bool IsGameOver { get; set; } = false;
-
-    public required ISubject<NoiseData> NoiseEvents { get; set; }
-    public required ISubject<EnemyDeathData> DeathEvents { get; set; }
+    public required ISubject<NoiseData> NoiseEvents { get; init; }
 
     /// <summary>
-    /// If true, the game is waiting for a secondary key press (e.g., direction for attack).
+    /// The event bus for broadcasting enemy elimination events.
     /// </summary>
-    public bool IsWaitingForSecondaryInput { get; set; } = false;
+    public required ISubject<EnemyDeathData> DeathEvents { get; init; }
 
     /// <summary>
-    /// A delegate (action) that will be executed when the secondary key is pressed.
+    /// The event bus triggered when an enemy successfully perceives a noise.
     /// </summary>
-    public Action<ConsoleKey>? PendingAction { get; set; }
+    public required ISubject<EnemyHeardNoiseData> HeardNoiseEvents { get; init; }
+
+    /// <summary>
+    /// The event bus triggered when a player successfully perceives a noise.
+    /// </summary>
+    public required ISubject<PlayerHeardNoiseData> PlayerHeardNoiseEvents { get; init; }
+
+    /// <summary>
+    /// Gets the rolling memory buffer that stores the most recent game events for client UI consumption.
+    /// </summary>
+    public EventLog EventLog { get; } = new EventLog(5);
+
+    /// <summary>
+    /// The primary event bus used to route diagnostic, combat, and loot data to the file logger.
+    /// </summary>
+    public required ISubject<SystemLogData> SystemLogs { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the current game session has ended.
+    /// </summary>
+    public bool IsGameOver { get; private set; } = false;
+
+    /// <summary>
+    /// Marks the global game state as concluded.
+    /// </summary>
+    public void SetGameOver() => IsGameOver = true;
+
+    /// <summary>
+    /// A thread-safe collection of all currently connected and active players in the session.
+    /// </summary>
+    public ConcurrentDictionary<int, Player> Players { get; } = new();
+
+    /// <summary>
+    /// Retrieves an enumeration of all active players participating in the session.
+    /// </summary>
+    /// <returns>An enumerable collection of <see cref="Player"/> objects.</returns>
+    public IEnumerable<Player> GetAllActivePlayers()
+    {
+        return Players.Values;
+    }
 }

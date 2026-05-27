@@ -10,6 +10,9 @@ public class GameConfig
     public string PlayerName { get; set; } = "Hero";
     public string DungeonTheme { get; set; } = "Library";
     public string LogDirectory { get; set; } = "Logs";
+    public string DefaultIp { get; set; } = "127.0.0.1";
+    public int DefaultPort { get; set; } = 5555;
+    public int MaxPlayers { get; set; } = 9;
 
     public static GameConfig Load(string path = "config.json")
     {
