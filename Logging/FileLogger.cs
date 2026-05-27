@@ -1,97 +1,103 @@
-﻿namespace AlchemyRPG;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace AlchemyRPG;
 
 /// <summary>
-/// Provides a logger that writes log entries to a file and maintains a memory buffer of recent logs for in-memory
-/// access.
+/// A thread-safe logging implementation that writes diagnostic and event data to a physical file 
+/// while maintaining a rolling in-memory buffer for quick access (e.g., for the in-game Journal).
 /// </summary>
 public class FileLogger : ILogger, IDisposable
 {
-    public string? GetLogFilePath() => SavedFilePath;
-    
-    /// <summary>
-    /// In-memory FIFO buffer storing the most recent <see cref="_maxBufferSize"/> <see cref="LogEntry"/> instances.
-    /// This buffer is intended for quick UI access without reading the log file from disk.
-    /// </summary>
     private readonly Queue<LogEntry> _memoryBuffer = new();
-
-    /// <summary>
-    /// Maximum number of entries to keep in the in-memory buffer
-    /// </summary>
-    private readonly int _maxBufferSize = 100; 
-    
-    /// <summary>
-    /// Stream writer used to append log entries to the persistent log file on disk. Opened in append mode and
-    /// configured with <see cref="StreamWriter.AutoFlush"/> enabled so entries are flushed immediately.
-    /// </summary>
+    private readonly int _maxBufferSize = 100;
     private readonly StreamWriter _fileWriter;
+    
+    // Dedicated lock object for the memory buffer to prevent deadlocks with the file writer.
+    private readonly object _syncRoot = new();
 
-    /// <summary>
-    /// Full path to the file where log entries are being written
-    /// </summary>
+    /// <summary>Gets the absolute path to the active log file on disk.</summary>
     public string SavedFilePath { get; }
+    
+    public string? GetLogFilePath() => SavedFilePath;
 
     /// <summary>
-    /// Creates a new instance of <see cref="FileLogger"/>.
+    /// Initializes a new instance of the <see cref="FileLogger"/> class, creating the log directory if needed.
     /// </summary>
-    /// <param name="directory">Directory where the log file will be created. If the directory does not exist it
-    /// will be created.</param>
-    /// <param name="playerName">Used as part of the log file name to identify which player's session the log
-    /// belongs to.</param>
+    /// <param name="directory">The target directory for the log file.</param>
+    /// <param name="playerName">A string identifier (e.g., "Server" or a player name) prepended to the file name.</param>
     public FileLogger(string directory, string playerName)
     {
         if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
-
         string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmm");
         SavedFilePath = Path.Combine(directory, $"{playerName}_{timestamp}.txt");
 
-        _fileWriter = new StreamWriter(SavedFilePath, append: true)
-        {
-            AutoFlush = true 
-        };
+        // AutoFlush ensures logs are written to disk immediately, preventing data loss on crash.
+        _fileWriter = new StreamWriter(SavedFilePath, append: true) { AutoFlush = true };
     }
 
     /// <summary>
-    /// Creates a new log entry and records it both in the in-memory buffer and to the persistent log file
+    /// Records a new log entry to both the in-memory buffer and the persistent file.
     /// </summary>
-    /// <param name="type">Severity or category of the log entry.</param>
-    /// <param name="message">The message text to record.</param>
+    /// <param name="type">The category or severity of the log.</param>
+    /// <param name="message">The text message to record.</param>
     public void Log(LogType type, string message)
     {
         var entry = new LogEntry(type, message);
-
-        if (_memoryBuffer.Count >= _maxBufferSize)
+        
+        lock (_syncRoot)
         {
-            _memoryBuffer.Dequeue();
+            if (_memoryBuffer.Count >= _maxBufferSize)
+            {
+                _memoryBuffer.Dequeue();
+            }
+            _memoryBuffer.Enqueue(entry);
         }
-        _memoryBuffer.Enqueue(entry);
 
         try
         {
-            _fileWriter.WriteLine(entry.ToString());
+            // Lock the stream writer directly to ensure thread-safe file I/O operations.
+            lock (_fileWriter)
+            {
+                _fileWriter.WriteLine(entry.ToString());
+            }
         }
-        catch { }
+        catch { /* Suppress file IO exceptions to prevent crashing the game server */ }
     }
 
     /// <summary>
-    /// Returns a snapshot of the entire in-memory buffer as a read-only list
+    /// Retrieves a snapshot of the entire active memory buffer.
     /// </summary>
-    /// <returns>A read-only list of all <see cref="LogEntry"/> items currently stored in memory.</returns>
-    public IReadOnlyList<LogEntry> GetFullMemoryBuffer() => _memoryBuffer.ToList();
+    public IReadOnlyList<LogEntry> GetFullMemoryBuffer()
+    {
+        lock (_syncRoot)
+        {
+            return _memoryBuffer.ToList();
+        }
+    }
 
     /// <summary>
-    /// Returns the most recent <paramref name="count"/> entries from the in-memory buffer. If <paramref name="count"/>
-    /// is greater than the number of items in the buffer, the entire buffer is returned.
+    /// Retrieves the specified number of the most recent log entries.
     /// </summary>
-    /// <param name="count">Number of recent entries to retrieve.</param>
-    /// <returns>A read-only list of up to <paramref name="count"/> most recent <see cref="LogEntry"/> items.</returns>
-    public IReadOnlyList<LogEntry> GetRecentLogs(int count) =>
-        _memoryBuffer.Skip(Math.Max(0, _memoryBuffer.Count - count)).ToList();
+    /// <param name="count">The maximum number of entries to retrieve.</param>
+    public IReadOnlyList<LogEntry> GetRecentLogs(int count)
+    {
+        lock (_syncRoot)
+        {
+            return _memoryBuffer.Skip(Math.Max(0, _memoryBuffer.Count - count)).ToList();
+        }
+    }
 
     /// <summary>
-    /// Releases resources used by the logger
+    /// Releases the unmanaged resources utilized by the StreamWriter.
     /// </summary>
     public void Dispose()
     {
-        _fileWriter?.Close();
+        lock (_fileWriter)
+        {
+            _fileWriter?.Close();
+        }
     }
 }
