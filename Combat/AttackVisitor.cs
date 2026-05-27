@@ -1,22 +1,35 @@
 ﻿namespace AlchemyRPG;
 
 /// <summary>
-/// The base class for all attack types. It holds the final calculated numbers for damage and defense.
-/// When the player attacks, the weapon will call one of the Visit methods to fill these numbers.
+/// The base abstract class for all attack types in the Visitor pattern.
+/// It holds the final calculated damage and defense values after a weapon is visited.
 /// </summary>
 public abstract class AttackVisitor : IAttackVisitor
 {
-    // The final damage the player will do to the enemy
+    /// <summary>
+    /// Gets or sets the final calculated damage the player will deal to the enemy.
+    /// </summary>
     public int CalculatedDamage { get; protected set; }
-    // The final defense the player has against the enemy's attack
+
+    /// <summary>
+    /// Gets or sets the final calculated defense the player has against the enemy's counter-attack.
+    /// </summary>
     public int CalculatedDefense { get; protected set; }
-    // We need the player's stats to calculate the final numbers
+
+    /// <summary>
+    /// The player initiating the attack, whose RPG statistics are used in the calculations.
+    /// </summary>
     protected Player _player;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AttackVisitor"/> class.
+    /// </summary>
+    /// <param name="player">The player performing the attack.</param>
     public AttackVisitor(Player player)
     {
         _player = player;
     }
+
     public abstract void VisitHeavyWeapon(IWeapon weapon);
     public abstract void VisitLightWeapon(IWeapon weapon);
     public abstract void VisitMagicWeapon(IWeapon weapon);
@@ -24,7 +37,8 @@ public abstract class AttackVisitor : IAttackVisitor
 }
 
 /// <summary>
-/// Represents a standard physical attack
+/// Represents a standard physical attack. 
+/// Scales well with strength for heavy weapons and dexterity for light weapons.
 /// </summary>
 public class NormalAttack : AttackVisitor
 {
@@ -44,19 +58,20 @@ public class NormalAttack : AttackVisitor
 
     public override void VisitMagicWeapon(IWeapon weapon)
     {
-        CalculatedDamage = 1; 
+        CalculatedDamage = weapon.Damage + _player.Wisdom;
         CalculatedDefense = _player.Dexterity + (_player.Luck + weapon.LuckBonus);
     }
 
     public override void VisitNonWeapon()
     {
-        CalculatedDamage = 0; 
+        CalculatedDamage = 0;
         CalculatedDefense = _player.Dexterity;
     }
 }
 
 /// <summary>
-/// Represents a sneak attack
+/// Represents a sneak attack.
+/// Deals massive damage with light weapons but significantly reduces the effectiveness of heavy weapons.
 /// </summary>
 public class StealthAttack : AttackVisitor
 {
@@ -88,7 +103,8 @@ public class StealthAttack : AttackVisitor
 }
 
 /// <summary>
-/// Represents a spell cast or magical strike
+/// Represents a magical spell cast or strike.
+/// Extremely effective with magic weapons, but renders physical weapons almost useless.
 /// </summary>
 public class MagicAttack : AttackVisitor
 {

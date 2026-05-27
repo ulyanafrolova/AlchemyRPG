@@ -1,27 +1,29 @@
 ﻿namespace AlchemyRPG;
 
 /// <summary>
-/// This interface represents the "Visitor" in our combat system.
-/// Instead of writing a huge 'switch' statement inside the Weapon class to check the attack type,
-/// we pass this AttackVisitor to the weapon. The weapon then calls the correct method 
-/// depending on its own type (Heavy, Light, Magic).
+/// Represents the Visitor interface in the combat system.
+/// Allows the game to calculate damage and defense based on the specific type of weapon equipped,
+/// without requiring type checking or hardcoded switch statements.
 /// </summary>
 public interface IAttackVisitor
 {
     /// <summary>
-    /// Calculates combat stats when the player uses a heavy weapon (like an Axe).
+    /// Performs attack calculations when the equipped item is a heavy weapon.
     /// </summary>
     void VisitHeavyWeapon(IWeapon weapon);
+
     /// <summary>
-    /// Calculates combat stats when the player uses a light weapon (like a Dagger).
+    /// Performs attack calculations when the equipped item is a light weapon.
     /// </summary>
     void VisitLightWeapon(IWeapon weapon);
+
     /// <summary>
-    /// Calculates combat stats when the player uses a magical weapon (like a Staff).
+    /// Performs attack calculations when the equipped item is a magic weapon.
     /// </summary>
     void VisitMagicWeapon(IWeapon weapon);
+
     /// <summary>
-    /// Calculates combat stats when the player is unarmed or holding a junk item.
+    /// Performs attack calculations when the player is unarmed or holding a non-weapon item.
     /// </summary>
     void VisitNonWeapon();
 }
