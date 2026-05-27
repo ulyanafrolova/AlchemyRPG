@@ -1,112 +1,121 @@
-﻿namespace AlchemyRPG;
+﻿using System;
+using System.Linq;
+
+namespace AlchemyRPG;
 
 /// <summary>
-/// Manages the combat interaction between the player and an enemy.
-/// This command pauses the game loop to ask for the attack direction and type, 
-/// and then uses the Visitor pattern to calculate damage without checking weapon types.
+/// Represents a command that executes a combat action against a target at specific coordinates.
+/// Handles validation, damage calculation using the Visitor pattern, and logging for both the attacker and the defender.
 /// </summary>
 public class AttackCommand : ICommand
 {
-    private static readonly Dictionary<ConsoleKey, (int dx, int dy)> DirectionMap = new()
-    {
-        { Keybinds.MoveUp, (0, -1) },
-        { Keybinds.MoveDown, (0, 1) },
-        { Keybinds.MoveLeft, (-1, 0) },
-        { Keybinds.MoveRight, (1, 0) }
-    };
-    /// <summary>
-    /// The player can always attempt to initiate an attack.
-    /// </summary>
-    public bool CanExecute(GameState state) => true;
-    public void Execute(GameState state)
-    {
-        state.Log = $"Attack direction? [{Keybinds.MoveUp}{Keybinds.MoveDown}{Keybinds.MoveLeft}{Keybinds.MoveRight}] or ESC.";
+    private readonly int _targetX;
+    private readonly int _targetY;
+    private readonly AttackType _attackType;
 
-        state.IsWaitingForSecondaryInput = true;
-        state.PendingAction = (dirKey) => ProcessDirectionInput(state, dirKey);
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AttackCommand"/> class.
+    /// </summary>
+    /// <param name="targetX">The X coordinate of the target to attack.</param>
+    /// <param name="targetY">The Y coordinate of the target to attack.</param>
+    /// <param name="attackType">The specific type of attack to perform (e.g., Normal, Stealth, Magic).</param>
+    public AttackCommand(int targetX, int targetY, AttackType attackType)
+    {
+        _targetX = targetX;
+        _targetY = targetY;
+        _attackType = attackType;
     }
 
-    private void ProcessDirectionInput(GameState state, ConsoleKey dirKey)
+    /// <summary>
+    /// Validates whether the attack can be performed. 
+    /// Ensures the player is alive and that the target is within a valid melee range (1 tile in any direction).
+    /// </summary>
+    /// <param name="state">The current global state of the game.</param>
+    /// <param name="executor">The player attempting to execute the command.</param>
+    /// <returns>True if the attack is valid and allowed; otherwise, false.</returns>
+    public bool CanExecute(GameState state, Player executor)
     {
-        int targetX = state.Player.X, targetY = state.Player.Y;
+        if (executor.IsDead) return false;
+        
+        int distanceX = Math.Abs(executor.X - _targetX);
+        int distanceY = Math.Abs(executor.Y - _targetY);
 
-        if (DirectionMap.TryGetValue(dirKey, out var offset))
+        // Attacks are strictly limited to adjacent tiles
+        if (distanceX > 1 || distanceY > 1)
         {
-            targetX += offset.dx;
-            targetY += offset.dy;
-        }
-        else
-        {
-            state.Player.LogMessage = "Invalid direction.";
-            state.IsWaitingForSecondaryInput = false;
-            return;
+            state.SystemLogs.Notify(new SystemLogData(LogType.System, $"[SECURITY ALERT] Player {executor.Name} attempted to attack out of range at ({_targetX}, {_targetY})."));
+            return false;
         }
 
-        var enemy = state.Map.GetEnemyAt(targetX, targetY);
+        return true;
+    }
+
+    /// <summary>
+    /// Executes the attack against an enemy at the target coordinates.
+    /// Processes the combat exchange, updates entity health, logs the outcome, and handles death events.
+    /// </summary>
+    /// <param name="state">The current global state of the game.</param>
+    /// <param name="executor">The player executing the command.</param>
+    public void Execute(GameState state, Player executor)
+    {
+        var enemy = state.Map.GetEnemyAt(_targetX, _targetY);
         if (enemy == null)
         {
-            state.Player.LogMessage = "You swing at the empty air.";
-            state.IsWaitingForSecondaryInput = false;
-            state.PendingAction = null;
-            state.Log = "";
+            state.EventLog.Push($"{executor.Name} swings at the empty air.");
             return;
         }
 
-        state.Log = $"Fighting {enemy.Name} (HP: {enemy.Health}). Choose attack: [1] Normal, [2] Stealth, [3] Magic.";
+        AttackResult result = PerformCombatExchange(executor, enemy, _attackType);
+        state.SystemLogs.Notify(new SystemLogData(LogType.Combat, $"{executor.Name} dealt {result.DamageDealt} dmg to {enemy.Name}."));
 
-        state.PendingAction = (attackKey) => ProcessAttackTypeInput(state, attackKey, enemy);
+        if (result.IsEnemyDead)
+        {
+            state.Map.RemoveEnemy(enemy);
+            state.EventLog.Push($"{executor.Name} killed {enemy.Name} with {result.DamageDealt} dmg!");
+            state.SystemLogs.Notify(new SystemLogData(LogType.Combat, $"{enemy.Name} died in combat."));
+            return;
+        }
+
+        state.SystemLogs.Notify(new SystemLogData(LogType.Combat, $"{executor.Name} took {result.DamageTaken} dmg from {enemy.Name}."));
+        state.EventLog.Push($"{executor.Name} hit for {result.DamageDealt}. {enemy.Name} hits back for {result.DamageTaken}!");
+        
+        if (result.IsPlayerDead)
+        {
+            state.SetGameOver();
+            state.SystemLogs.Notify(new SystemLogData(LogType.System, $"{executor.Name} died in combat."));
+            state.EventLog.Push($"{executor.Name} died in combat!");
+        }
     }
 
-    private void ProcessAttackTypeInput(GameState state, ConsoleKey attackKey, Enemy enemy)
+    /// <summary>
+    /// Orchestrates the mathematical exchange of damage between the player and the enemy.
+    /// Uses the Visitor pattern to dynamically calculate damage based on the equipped weapon type.
+    /// </summary>
+    /// <param name="executor">The player initiating the attack.</param>
+    /// <param name="enemy">The enemy defending against the attack.</param>
+    /// <param name="attackType">The combat style chosen by the player.</param>
+    /// <returns>An <see cref="AttackResult"/> containing the calculated damage and survival status.</returns>
+    private static AttackResult PerformCombatExchange(Player executor, Enemy enemy, AttackType attackType)
     {
-        state.IsWaitingForSecondaryInput = false;
-        state.PendingAction = null;
-        state.Log = "";
+        IInventoryItem? activeItem = executor.RightHand ?? executor.LeftHand;
 
-        var attackFactories = new Dictionary<ConsoleKey, Func<Player, AttackVisitor>>
-    {
-        { ConsoleKey.D1, p => new NormalAttack(p) },
-        { ConsoleKey.D2, p => new StealthAttack(p) },
-        { ConsoleKey.D3, p => new MagicAttack(p) }
-    };
+        var visitor = AttackFactory.Create(attackType, executor);
+        
+        if (activeItem != null)
+            activeItem.Accept(visitor);
+        else
+            visitor.VisitNonWeapon();
 
-        if (!attackFactories.TryGetValue(attackKey, out var createAttack))
+        int damageDealt = Math.Max(0, visitor.CalculatedDamage - enemy.Armor);
+        enemy.TakeDamage(damageDealt);
+
+        int damageTaken = 0;
+        if (!enemy.IsDead)
         {
-            GameLogger.Instance.Log(LogType.System, "Attack cancelled.");
-            return;
+            damageTaken = Math.Max(0, enemy.AttackDamage - visitor.CalculatedDefense);
+            executor.TakeDamage(damageTaken);
         }
 
-        AttackVisitor visitor = createAttack(state.Player);
-        IInventoryItem? activeWeapon = state.Player.RightHand ?? state.Player.LeftHand;
-
-        if (activeWeapon != null)
-            activeWeapon.Accept(visitor);
-        else visitor.VisitNonWeapon();
-
-        int playerDamageDone = Math.Max(0, visitor.CalculatedDamage - enemy.Armor);
-
-        enemy.TakeDamage(playerDamageDone);
-
-        GameLogger.Instance.Log(LogType.Combat, $"{state.Player.Name} dealt {playerDamageDone} dmg to {enemy.Name}.");
-
-        if (enemy.IsDead)
-        {
-            state.Map.Enemies.Remove(enemy);
-            state.Player.LogMessage = $"You killed {enemy.Name} with {playerDamageDone} dmg!";
-            GameLogger.Instance.Log(LogType.Combat, $"{enemy.Name} died in combat.");
-            return;
-        }
-
-        int damageTakenByPlayer = Math.Max(0, enemy.AttackDamage - visitor.CalculatedDefense);
-        state.Player.TakeDamage(damageTakenByPlayer);
-
-        state.Player.LogMessage = $"Hit for {playerDamageDone}. {enemy.Name} hits back for {damageTakenByPlayer}! (HP: {state.Player.Health})";
-        GameLogger.Instance.Log(LogType.Combat, $"{state.Player.Name} took {damageTakenByPlayer} dmg from {enemy.Name}.");
-
-        if (state.Player.IsDead)
-        {
-            state.IsGameOver = true;
-            GameLogger.Instance.Log(LogType.System, $"{state.Player.Name} died in combat.");
-        }
+        return new AttackResult(damageDealt, damageTaken, enemy.IsDead, executor.IsDead);
     }
 }

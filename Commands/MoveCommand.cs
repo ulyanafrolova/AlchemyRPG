@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Represents a command to move the player by a specific offset on the map.
-/// Handles boundary and wall collision detection before applying the movement.
+/// Handles boundary checks and collision detection with walls, enemies, and other players.
 /// </summary>
 public class MoveCommand : ICommand
 {
@@ -10,10 +10,10 @@ public class MoveCommand : ICommand
     private readonly int _dy;
 
     /// <summary>
-    /// Initializes a new instance of the MoveCommand.
+    /// Initializes a new instance of the <see cref="MoveCommand"/> class.
     /// </summary>
-    /// <param name="dx">The horizontal movement offset (-1 for left, 1 for right, 0 for none).</param>
-    /// <param name="dy">The vertical movement offset (-1 for up, 1 for down, 0 for none).</param>
+    /// <param name="dx">The horizontal displacement (-1, 0, or 1).</param>
+    /// <param name="dy">The vertical displacement (-1, 0, or 1).</param>
     public MoveCommand(int dx, int dy)
     {
         _dx = dx;
@@ -21,37 +21,60 @@ public class MoveCommand : ICommand
     }
 
     /// <summary>
-    /// Verifies if the target destination is walkable before modifying the player's coordinates.
+    /// Validates the move attempt. Ensures the player is alive, the move is within valid map boundaries, 
+    /// and the input is not an illegal diagonal or long-distance jump.
     /// </summary>
-    public bool CanExecute(GameState state)
+    public bool CanExecute(GameState state, Player executor)
     {
-        int targetX = state.Player.X + _dx;
-        int targetY = state.Player.Y + _dy;
-        return targetX >= 0 && targetX < state.Map.Width && targetY >= 0 && targetY < state.Map.Height;
+        if (executor.IsDead) return false;
+
+        // Security check: Prevent diagonal movement (if prohibited) or teleportation (dx/dy > 1)
+        if (Math.Abs(_dx) > 1 || Math.Abs(_dy) > 1 || (Math.Abs(_dx) == 1 && Math.Abs(_dy) == 1))
+        {
+            state.SystemLogs.Notify(new SystemLogData(LogType.System,
+                $"[SECURITY ALERT] Player {executor.Name} attempted illegal movement delta ({_dx}, {_dy})."));
+            return false;
+        }
+
+        int targetX = executor.X + _dx;
+        int targetY = executor.Y + _dy;
+
+        // Ensure target is within map bounds
+        if (targetX < 0 || targetX >= state.Map.Width || targetY < 0 || targetY >= state.Map.Height)
+            return false;
+
+        return true;
     }
 
     /// <summary>
-    /// Executes the movement action. 
+    /// Executes the movement. Handles collision feedback if the path is blocked by enemies, 
+    /// other players, or walls. If clear, updates the executor's position.
     /// </summary>
-    /// <param name="state">The current global state of the game.</param>
-    public void Execute(GameState state)
+    public void Execute(GameState state, Player executor)
     {
-        int targetX = state.Player.X + _dx;
-        int targetY = state.Player.Y + _dy;
+        int targetX = executor.X + _dx;
+        int targetY = executor.Y + _dy;
 
         var enemy = state.Map.GetEnemyAt(targetX, targetY);
+        var otherPlayer = state.GetAllActivePlayers()
+            .FirstOrDefault(p => p.X == targetX && p.Y == targetY && p != executor);
 
         if (enemy != null)
         {
-            state.Player.LogMessage = $"{enemy.Name} blocks your path! Presss [{Keybinds.Attack}] to fight.";
+            executor.SetLogMessage($"{enemy.Name} blocks your path! Press [{Keybinds.Attack}] to fight.");
         }
-        else if (state.Map.Grid[targetY, targetX] != Tiles.Wall)
+        else if (otherPlayer != null)
         {
-            state.Player.Move(_dx, _dy);
+            executor.SetLogMessage($"{otherPlayer.Name} stands in your way.");
+        }
+        else if (state.Map.GetTileAt(targetX, targetY) == TerrainType.Wall)
+        {
+            state.SystemLogs.Notify(new SystemLogData(LogType.Movement,
+                $"{executor.Name} bumped into a cold stone wall."));
         }
         else
         {
-            GameLogger.Instance.Log(LogType.Movement, $"{state.Player.Name} bumped into a cold stone wall.");
+            executor.Move(_dx, _dy);
         }
     }
 }

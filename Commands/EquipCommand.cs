@@ -1,65 +1,52 @@
 ﻿namespace AlchemyRPG;
 
 /// <summary>
-/// Represents an interactive command that equips a selected inventory item to a specific hand.
-/// Temporarily pauses the main game loop to request additional user input (choosing left or right).
+/// Represents a domain command that equips a specified item from the player's backpack to a designated hand.
 /// </summary>
 public class EquipCommand : ICommand
 {
-    private readonly int _inventoryIndex;
+    private readonly Guid _itemId;
+    private readonly HandSide _handSide;
 
     /// <summary>
-    /// Initializes a new instance of the EquipCommand with the pre-selected inventory index.
+    /// Initializes a new instance of the <see cref="EquipCommand"/> class.
     /// </summary>
-    /// <param name="index">The index of the item inside the player's backpack to be equipped.</param>
-    public EquipCommand(int index)
+    /// <param name="itemId">The unique identifier of the item to be equipped.</param>
+    /// <param name="handSide">The specific hand (Left or Right) to equip the item into.</param>
+    public EquipCommand(Guid itemId, HandSide handSide)
     {
-        _inventoryIndex = index;
+        _itemId = itemId;
+        _handSide = handSide;
     }
 
     /// <summary>
-    /// Validates the inventory index
-    /// </summary>
-    public bool CanExecute(GameState state)
-    {
-        if (_inventoryIndex >= state.Player.Backpack.Count)
-        {
-            state.Player.LogMessage = "Empty inventory slot.";
-            return false;
-        }
-        return true;
-    }
-
-    /// <summary>
-    /// Executes the equip action. Prompts the user to select a hand,
-    /// and delegates the complex equipping logic to the player class.
+    /// Validates whether the equip action is permitted.
+    /// Ensures the player is alive and that the requested item actually exists within their backpack.
     /// </summary>
     /// <param name="state">The current global state of the game.</param>
-    public void Execute(GameState state)
+    /// <param name="executor">The player attempting to equip the item.</param>
+    /// <returns>True if the item is found in the backpack; otherwise, false.</returns>
+    public bool CanExecute(GameState state, Player executor)
     {
-        state.Log = $"Equipping {state.Player.Backpack[_inventoryIndex].Name}. Which hand? [{Keybinds.EquipLeft}] Left / [{Keybinds.EquipRight}] Right";
-
-        state.IsWaitingForSecondaryInput = true;
-        state.PendingAction = (handKey) => ProcessEquipInput(state, handKey);
+        if (executor.IsDead) return false;
+        
+        return executor.Backpack.Any(i => i.Id == _itemId);
     }
 
-    private void ProcessEquipInput(GameState state, ConsoleKey handKey)
+    /// <summary>
+    /// Executes the equip action. Retrieves the item from the backpack, delegates the physical equipping 
+    /// logic to the player object, and logs the successful action to the system logs.
+    /// </summary>
+    /// <param name="state">The current global state of the game.</param>
+    /// <param name="executor">The player executing the command.</param>
+    public void Execute(GameState state, Player executor)
     {
-        state.IsWaitingForSecondaryInput = false;
-        state.PendingAction = null;
-        state.Log = "";
-
-        if (handKey == Keybinds.EquipLeft)
+        var item = executor.Backpack.FirstOrDefault(i => i.Id == _itemId);
+        
+        if (item != null)
         {
-            state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Left);
-        }
-        else if (handKey == Keybinds.EquipRight)
-        {
-            state.Player.TryEquipFromBackpack(_inventoryIndex, HandSide.Right);
-        }
-        else
-        {
-            GameLogger.Instance.Log(LogType.Loot, "Cancelled equipping.");
+            executor.TryEquipFromBackpack(_itemId, _handSide);
+            state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"{executor.Name} equipped [{_handSide}]: {item.Name}"));
         }
     }
 }

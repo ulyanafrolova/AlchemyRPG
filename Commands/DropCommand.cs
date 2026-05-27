@@ -1,65 +1,65 @@
 ﻿namespace AlchemyRPG;
 
 /// <summary>
-/// Represents an interactive command that allows the player to drop an item from their backpack.
-/// Temporarily pauses the main game loop to request additional user input (the inventory index).
+/// Represents a command to remove a specific item from the player's inventory and place it onto the game map.
+/// Also handles the calculation and broadcasting of noise events resulting from the item hitting the ground.
 /// </summary>
 public class DropCommand : ICommand
 {
+    private readonly Guid _itemId;
+
     /// <summary>
-    /// Validation
+    /// Initializes a new instance of the <see cref="DropCommand"/> class.
     /// </summary>
-    public bool CanExecute(GameState state)
+    /// <param name="itemId">The unique identifier of the item to be dropped.</param>
+    public DropCommand(Guid itemId)
     {
-        if (state.Player.Backpack.Count == 0)
-        {
-            state.Player.LogMessage = "Your backpack is empty. Nothing to drop.";
-            return false;
-        }
-        return true;
+        _itemId = itemId;
     }
+
     /// <summary>
-    /// Executes the drop action. Prompts the user for a numeric input and transfers the item from the backpack to the map grid.
+    /// Validates whether the item can be dropped.
+    /// Ensures the player is alive and actually possesses the item in their backpack.
     /// </summary>
     /// <param name="state">The current global state of the game.</param>
-    public void Execute(GameState state)
+    /// <param name="executor">The player attempting to drop the item.</param>
+    /// <returns>True if the item is present in the inventory; otherwise, false.</returns>
+    public bool CanExecute(GameState state, Player executor)
     {
-        state.Log = $"Drop which item? [{Keybinds.EquipKeysLabel}] or {Keybinds.Cancel} to cancel.";
-
-        state.IsWaitingForSecondaryInput = true;
-        state.PendingAction = (key) => ProcessDropInput(state, key);
+        if (executor.IsDead) return false;
+        return executor.Backpack.Any(i => i.Id == _itemId);
     }
 
-    private void ProcessDropInput(GameState state, ConsoleKey key)
+    /// <summary>
+    /// Executes the drop action. Removes the item from the player, places it on their current coordinates,
+    /// logs the event, and triggers the acoustic system if the item generates noise.
+    /// </summary>
+    /// <param name="state">The current global state of the game.</param>
+    /// <param name="executor">The player dropping the item.</param>
+    public void Execute(GameState state, Player executor)
     {
-        state.IsWaitingForSecondaryInput = false;
-        state.PendingAction = null;
-        state.Log = "";
-
-        if (key >= Keybinds.EquipBaseKey && key < Keybinds.EquipBaseKey + Keybinds.EquipSlotsCount)
+        var droppedItem = executor.DropItem(_itemId);
+        
+        if (droppedItem != null)
         {
-            int index = key - Keybinds.EquipBaseKey;
-            var droppedItem = state.Player.DropItem(index);
-            if (droppedItem != null)
+            state.Map.PlaceItemAt(executor.X, executor.Y, droppedItem);
+            
+            state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"{executor.Name} dropped: {droppedItem.Name}"));
+            state.EventLog.Push($"{executor.Name} dropped: {droppedItem.Name}");
+            
+            // Calculate potential noise using the Visitor pattern
+            int noiseRange = droppedItem.Accept(new ItemNoiseVisitor());
+            
+            if (noiseRange > 0)
             {
-                state.Map.PlaceItemAt(state.Player.X, state.Player.Y, droppedItem);
-                GameLogger.Instance.Log(LogType.Loot, $"{state.Player.Name} dropped {droppedItem.Name}");
-                state.Log = $"Dropped: {droppedItem.Name}";
-                if (droppedItem.NoiseRange > 0)
-                {
-                    GameLogger.Instance.Log(LogType.Loot, $"Drop noise generated: {droppedItem.NoiseRange}");
+                state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"Noise generated: {noiseRange}"));
+                state.EventLog.Push($"{executor.Name} made noise (Range: {noiseRange})");
 
-                    var acousticMap = AcousticSystem.CalculateAcousticDistances(
-                        state.Map, state.Player.X, state.Player.Y, droppedItem.NoiseRange);
-
-                    var noiseData = new NoiseData(state.Player.X, state.Player.Y, acousticMap);
-                    state.NoiseEvents.Notify(noiseData);
-                }
+                // Calculate the sound propagation map and notify observers
+                var acousticMap = state.Acoustic.CalculateAcousticDistances(state.Map, executor.X, executor.Y, noiseRange);
+                var noiseData = new NoiseData(executor.X, executor.Y, acousticMap);
+                state.NoiseEvents.Notify(noiseData);
             }
-        }
-        else
-        {
-            GameLogger.Instance.Log(LogType.Loot, "Drop cancelled.");
         }
     }
 }
