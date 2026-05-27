@@ -8,23 +8,27 @@ public class ThemePopulatorModifier : IDungeonModifier
 {
     private readonly IThemeFactory _factory;
     private readonly int _lootCount;
+    private readonly ISubject<SystemLogData> _systemLogs;
     private readonly int _enemyCount;
     private readonly ISubject<NoiseData> _noiseEvents;
     private readonly ISubject<EnemyDeathData> _deathEvents;
+    private readonly ISubject<EnemyHeardNoiseData> _heardNoiseEvents;
 
     public ThemePopulatorModifier(
         IThemeFactory factory,
         int lootCount,
         int enemyCount,
         ISubject<NoiseData> noiseEvents,
-        ISubject<EnemyDeathData> deathEvents)
+        ISubject<EnemyDeathData> deathEvents,
+        ISubject<EnemyHeardNoiseData> heardNoiseEvents, ISubject<SystemLogData> systemLogs)
     {
         _factory = factory;
         _lootCount = lootCount;
         _enemyCount = enemyCount;
-
+        _systemLogs = systemLogs;
         _noiseEvents = noiseEvents;
         _deathEvents = deathEvents;
+        _heardNoiseEvents = heardNoiseEvents;
     }
 
     public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
@@ -53,7 +57,7 @@ public class ThemePopulatorModifier : IDungeonModifier
 
             for (int i = 0; i < _enemyCount; i++)
             {
-                map.SpawnEnemyRandomly(rand, _factory.CreateEnemy(i, _noiseEvents, _deathEvents));
+                map.SpawnEnemyRandomly(rand, _factory.CreateEnemy(i, _noiseEvents, _deathEvents, _heardNoiseEvents, _systemLogs));
             }
         }
 

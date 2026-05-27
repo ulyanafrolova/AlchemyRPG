@@ -28,11 +28,11 @@ public class GreenhouseThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., a Mutated Mandrake or a Carnivorous Plant).</returns>
-    public Enemy CreateEnemy(int index, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents)
+    public Enemy CreateEnemy(int index, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents, ISubject<EnemyHeardNoiseData> heardNoiseEvents, ISubject<SystemLogData> systemLogs)
     {
         return index % 2 == 0
-            ? new Enemy("Mutated Mandrake", "Plant", 25, 10, 1, noiseEvents, deathEvents, new CowardlyBehavior())
-            : new Enemy("Carnivorous Plant", "Plant", 40, 18, 3, noiseEvents, deathEvents, new AggressiveBehavior());
+            ? new Enemy("Mutated Mandrake", "Plant", 25, 10, 1, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new CowardlyBehavior())
+            : new Enemy("Carnivorous Plant", "Plant", 40, 18, 3, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new AggressiveBehavior());
     }
 
     /// <summary>

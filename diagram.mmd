@@ -1,0 +1,399 @@
+classDiagram
+    %% ==========================================
+    %% MVC: CONTROLLER & CORE
+    %% ==========================================
+    class Game {
+        -GameState _state
+        -bool _isRunning
+        -InputHandler _inputHandler
+        -IView _view
+        +Run()
+    }
+
+    class GameConfig {
+        +string PlayerName
+        +string DungeonTheme
+        +string LogDirectory
+        +Load(string path)$ GameConfig
+    }
+
+    %% ==========================================
+    %% MVC: VIEW
+    %% ==========================================
+    class IView {
+        <<interface>>
+        +Render(GameStateDTO stateDto)
+        +RenderFullScreen(string title, string content)
+    }
+
+    class ConsoleView {
+        +Render(GameStateDTO stateDto)
+        +RenderFullScreen(string title, string content)
+        -GetSymbolToDraw(GameStateDTO state, int x, int y) char
+        -GetStatsLine(int y, PlayerDTO p) string
+    }
+
+    %% ==========================================
+    %% NETWORK & DTOs (STAGE 6 PLANS)
+    %% ==========================================
+    class NetworkServer {
+        +Start(int port)
+        +AcceptClients()
+        +BroadcastState(GameStateDTO state)
+        +ReceiveCommand() NetworkCommandDTO
+    }
+
+    class NetworkClient {
+        +Connect(string ip, int port)
+        +SendAction(NetworkCommandDTO command)
+        +ReceiveState() GameStateDTO
+    }
+
+    class StateMapper {
+        <<static>>
+        +ToDTO(GameState state)$ GameStateDTO
+    }
+
+    class GameStateDTO {
+        +MapDTO Map
+        +PlayerDTO LocalPlayer
+        +List~PlayerDTO~ OtherPlayers
+        +string Log
+        +string Instructions
+        +List~string~ RecentLogs
+    }
+
+    class MapDTO {
+        +int Width
+        +int Height
+        +string[] Grid
+        +List~ItemDTO~ Items
+        +List~EntityDTO~ Enemies
+    }
+
+    class PlayerDTO {
+        +int Health
+        +int Strength
+        +int Gold
+        +string LeftHandName
+        +string RightHandName
+    }
+
+    class EntityDTO {
+        +int Id
+        +int X
+        +int Y
+        +char Symbol
+        +string Name
+    }
+
+    class ItemDTO {
+        +int X
+        +int Y
+        +char Symbol
+        +string Name
+    }
+
+    class NetworkCommandDTO {
+        +string ActionType
+        +string PayloadJson
+    }
+
+    %% ==========================================
+    %% MVC: MODEL
+    %% ==========================================
+    class GameState {
+        +Player Player
+        +Map Map
+        +string Log
+        +string Instructions
+        +string TutorialText
+        +bool IsGameOver
+        +ISubject~NoiseData~ NoiseEvents
+        +ISubject~EnemyDeathData~ DeathEvents
+    }
+
+    class Map {
+        +int Width
+        +int Height
+        +char[,] Grid
+        -List~Tuple~ _items
+        +List~Enemy~ Enemies
+        +bool IsWalkable(int x, int y)
+        +List~IItem~ GetItemsAt(int x, int y)
+        +IReadOnlyList~Tuple~ GetAllItems()
+        +Enemy GetEnemyAt(int x, int y)
+        +void PlaceItemAt(int x, int y, IItem item)
+        +void AddItem(int x, int y, IItem item)
+        +void RemoveItem(int x, int y, IItem item)
+    }
+
+    class MapExtensions {
+        <<static>>
+        +void SpawnItemRandomly(this Map map, Random rand, IItem item)$
+        +void SpawnEnemyRandomly(this Map map, Random rand, Enemy enemy)$
+    }
+
+    %% ==========================================
+    %% EVENT SYSTEM (TRUE OBSERVER PATTERN)
+    %% ==========================================
+    class IObserver~T~ {
+        <<interface>>
+        +OnNext(T data)
+    }
+
+    class ISubject~T~ {
+        <<interface>>
+        +Subscribe(IObserver~T~ observer)
+        +Unsubscribe(IObserver~T~ observer)
+        +Notify(T data)
+    }
+
+    class Subject~T~ {
+        -List~IObserver~ _observers
+        +Subscribe(IObserver~T~ observer)
+        +Unsubscribe(IObserver~T~ observer)
+        +Notify(T data)
+    }
+
+    class NoiseData {
+        +int SourceX
+        +int SourceY
+        +Dictionary~Tuple, int~ ReachedTiles
+    }
+
+    class EnemyDeathData {
+        +string Species
+    }
+
+    class AcousticSystem {
+        <<static>>
+        +CalculateAcousticDistances(Map map, int x, int y, int range)$ Dictionary
+    }
+
+    %% ==========================================
+    %% STRATEGY PATTERN (Enemy Behavior)
+    %% ==========================================
+    class IKinsmanDeathBehavior {
+        <<interface>>
+        +React(Enemy enemy)
+    }
+
+    class CowardlyBehavior {
+        +React(Enemy enemy)
+    }
+
+    class AggressiveBehavior {
+        +React(Enemy enemy)
+    }
+
+    class NeutralBehavior {
+        +React(Enemy enemy)
+    }
+
+    %% ==========================================
+    %% LOGGING SYSTEM
+    %% ==========================================
+    class ILogger {
+        <<interface>>
+        +Log(LogType type, string message)
+        +GetFullMemoryBuffer() List~LogEntry~
+        +GetRecentLogs(int count) List~LogEntry~
+    }
+
+    class FileLogger
+    class GameLogger {
+        <<static>>
+        -ILogger _instance$
+        +Initialize(ILogger logger)$
+        +Instance$ ILogger
+    }
+
+    %% ==========================================
+    %% ENTITIES
+    %% ==========================================
+    class Entity {
+        <<abstract>>
+        +string Name
+        +char Symbol
+        +int Health
+        +int X
+        +int Y
+        +TakeDamage(int amount)
+    }
+
+    class Player {
+        +int Strength
+        +int Dexterity
+        +int TotalLuck
+        +int Gold
+        +List~IInventoryItem~ Backpack
+        +IInventoryItem LeftHand
+        +IInventoryItem RightHand
+        +Move(int dx, int dy)
+        +TryEquipFromBackpack(int index, HandSide side)
+        +DropItem(int index) IInventoryItem
+    }
+
+    class Enemy {
+        +string Species
+        +int AttackDamage
+        +int Armor
+        -IKinsmanDeathBehavior _deathBehavior
+        -ISubject~NoiseData~ _noiseEvents
+        -ISubject~EnemyDeathData~ _deathEvents
+        +TriggerDeathProcessing()
+        +Update(GameState state, Random rand)
+        +OnNext(NoiseData noise)
+        +OnNext(EnemyDeathData deathInfo)
+    }
+
+    %% ==========================================
+    %% DUNGEON BUILDER & ABSTRACT FACTORY
+    %% ==========================================
+    class IThemeFactory {
+        <<interface>>
+        +CreateLoot(Random rand) IItem
+        +CreateEnemy(int index, ISubject noiseEvents, ISubject deathEvents) Enemy
+        +ConfigureBuilder(IDungeonBuilder builder)
+    }
+
+    class LaboratoryThemeFactory
+    class CrystalMineThemeFactory
+    class IDungeonBuilder {
+        <<interface>>
+    }
+    class DungeonBuilder
+    class DungeonDirector {
+        +ConstructThemedDungeon(IThemeFactory factory, ISubject n, ISubject d)
+    }
+    class ThemePopulatorModifier
+
+    %% ==========================================
+    %% COMMANDS (INVOKER)
+    %% ==========================================
+    class ICommand {
+        <<interface>>
+        +CanExecute(GameState state) bool
+        +Execute(GameState state)
+    }
+
+    class InputHandler {
+        -Dictionary~ConsoleKey, ICommand~ _commands
+        +HandleInput(ConsoleKey key, GameState state) bool
+    }
+
+    class MoveCommand
+    class AttackCommand
+    class DropCommand
+    class PickUpCommand
+
+    %% ==========================================
+    %% ITEMS & WEAPONS
+    %% ==========================================
+    class IItem {
+        <<interface>>
+        +string Name
+        +char Symbol
+        +int NoiseRange
+        +OnPickUp(GameState state)
+    }
+    class IInventoryItem {
+        <<interface>>
+        +Equip(Player player, HandSide side)
+        +Accept(IAttackVisitor visitor)
+    }
+    class IWeapon {
+        <<interface>>
+    }
+    class WeaponDecorator {
+        <<abstract>>
+    }
+    class StrongModifier
+
+    %% ==========================================
+    %% VISITOR PATTERN (COMBAT)
+    %% ==========================================
+    class IAttackVisitor {
+        <<interface>>
+    }
+    class AttackVisitor {
+        <<abstract>>
+    }
+    class NormalAttack
+
+    %% ==========================================
+    %% RELATIONSHIPS
+    %% ==========================================
+    
+    %% Core & MVC
+    Game *-- InputHandler
+    Game *-- IView
+    Game --> GameState
+    IView <|.. ConsoleView
+    ConsoleView ..> GameStateDTO : Render
+    Game ..> StateMapper : Converts state to DTO
+    
+    %% Network & DTOs
+    StateMapper ..> GameStateDTO : Creates
+    GameStateDTO *-- MapDTO
+    GameStateDTO *-- PlayerDTO
+    MapDTO *-- ItemDTO
+    MapDTO *-- EntityDTO
+    EntityDTO <|-- PlayerDTO
+    NetworkServer ..> GameStateDTO : Broadcasts
+    NetworkClient ..> GameStateDTO : Receives
+    NetworkServer ..> NetworkCommandDTO : Receives
+    NetworkClient ..> NetworkCommandDTO : Sends
+
+    %% State
+    GameState *-- Player
+    GameState *-- Map
+    GameState *-- ISubject~NoiseData~
+    GameState *-- ISubject~EnemyDeathData~
+
+    %% Observer & Strategy
+    ISubject~T~ <|.. Subject~T~
+    IObserver~NoiseData~ <|.. Enemy
+    IObserver~EnemyDeathData~ <|.. Enemy
+    IKinsmanDeathBehavior <|.. CowardlyBehavior
+    IKinsmanDeathBehavior <|.. AggressiveBehavior
+    IKinsmanDeathBehavior <|.. NeutralBehavior
+    Enemy *-- IKinsmanDeathBehavior
+
+    %% Entities
+    Entity <|-- Player
+    Entity <|-- Enemy
+    Map o-- Enemy
+    Map o-- IItem
+    MapExtensions ..> Map
+
+    %% Logging
+    ILogger <|.. FileLogger
+    GameLogger o-- ILogger
+    
+    %% Generation
+    IThemeFactory <|.. LaboratoryThemeFactory
+    IThemeFactory <|.. CrystalMineThemeFactory
+    DungeonDirector o-- IThemeFactory
+    DungeonDirector o-- IDungeonBuilder
+    IDungeonBuilder <|.. DungeonBuilder
+    ThemePopulatorModifier *-- IThemeFactory
+
+    %% Commands & Items
+    InputHandler *-- ICommand
+    ICommand <|.. MoveCommand
+    ICommand <|.. PickUpCommand
+    ICommand <|.. AttackCommand
+    ICommand <|.. DropCommand
+    
+    IItem <|-- IInventoryItem
+    IInventoryItem <|-- IWeapon
+    IWeapon <|.. WeaponDecorator
+    WeaponDecorator <|-- StrongModifier
+
+    %% Visitor
+    IAttackVisitor <|.. AttackVisitor
+    AttackVisitor <|-- NormalAttack
+    AttackCommand ..> IAttackVisitor
+    IInventoryItem ..> IAttackVisitor : Accept’
