@@ -6,17 +6,17 @@
 public class EquipCommand : ICommand
 {
     private readonly Guid _itemId;
-    private readonly HandSide _handSide;
+    private readonly IEquipSlot _slot;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EquipCommand"/> class.
     /// </summary>
     /// <param name="itemId">The unique identifier of the item to be equipped.</param>
     /// <param name="handSide">The specific hand (Left or Right) to equip the item into.</param>
-    public EquipCommand(Guid itemId, HandSide handSide)
+    public EquipCommand(Guid itemId, IEquipSlot slot)
     {
         _itemId = itemId;
-        _handSide = handSide;
+        _slot = slot;
     }
 
     /// <summary>
@@ -29,7 +29,7 @@ public class EquipCommand : ICommand
     public bool CanExecute(GameState state, Player executor)
     {
         if (executor.IsDead) return false;
-        
+
         return executor.Backpack.Any(i => i.Id == _itemId);
     }
 
@@ -42,11 +42,10 @@ public class EquipCommand : ICommand
     public void Execute(GameState state, Player executor)
     {
         var item = executor.Backpack.FirstOrDefault(i => i.Id == _itemId);
-        
         if (item != null)
         {
-            executor.TryEquipFromBackpack(_itemId, _handSide);
-            state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"{executor.Name} equipped [{_handSide}]: {item.Name}"));
+            item.Equip(executor, _slot);
+            state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"{executor.Name} equipped: {item.Name}"));
         }
     }
 }

@@ -11,7 +11,7 @@ public class AttackCommand : ICommand
 {
     private readonly int _targetX;
     private readonly int _targetY;
-    private readonly AttackType _attackType;
+    private readonly Func<Player, AttackVisitor> _visitorFactory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AttackCommand"/> class.
@@ -19,11 +19,11 @@ public class AttackCommand : ICommand
     /// <param name="targetX">The X coordinate of the target to attack.</param>
     /// <param name="targetY">The Y coordinate of the target to attack.</param>
     /// <param name="attackType">The specific type of attack to perform (e.g., Normal, Stealth, Magic).</param>
-    public AttackCommand(int targetX, int targetY, AttackType attackType)
+    public AttackCommand(int targetX, int targetY, Func<Player, AttackVisitor> visitorFactory)
     {
         _targetX = targetX;
         _targetY = targetY;
-        _attackType = attackType;
+        _visitorFactory = visitorFactory;
     }
 
     /// <summary>
@@ -36,12 +36,13 @@ public class AttackCommand : ICommand
     public bool CanExecute(GameState state, Player executor)
     {
         if (executor.IsDead) return false;
-        
+
         int distanceX = Math.Abs(executor.X - _targetX);
         int distanceY = Math.Abs(executor.Y - _targetY);
+        int currentRange = executor.AttackRange;
 
         // Attacks are strictly limited to adjacent tiles
-        if (distanceX > 1 || distanceY > 1)
+        if (distanceX > currentRange || distanceY > currentRange)
         {
             state.SystemLogs.Notify(new SystemLogData(LogType.System, $"[SECURITY ALERT] Player {executor.Name} attempted to attack out of range at ({_targetX}, {_targetY})."));
             return false;
@@ -65,7 +66,7 @@ public class AttackCommand : ICommand
             return;
         }
 
-        AttackResult result = PerformCombatExchange(executor, enemy, _attackType);
+        AttackResult result = PerformCombatExchange(executor, enemy, _visitorFactory);
         state.SystemLogs.Notify(new SystemLogData(LogType.Combat, $"{executor.Name} dealt {result.DamageDealt} dmg to {enemy.Name}."));
 
         if (result.IsEnemyDead)
@@ -78,10 +79,9 @@ public class AttackCommand : ICommand
 
         state.SystemLogs.Notify(new SystemLogData(LogType.Combat, $"{executor.Name} took {result.DamageTaken} dmg from {enemy.Name}."));
         state.EventLog.Push($"{executor.Name} hit for {result.DamageDealt}. {enemy.Name} hits back for {result.DamageTaken}!");
-        
+
         if (result.IsPlayerDead)
         {
-            state.SetGameOver();
             state.SystemLogs.Notify(new SystemLogData(LogType.System, $"{executor.Name} died in combat."));
             state.EventLog.Push($"{executor.Name} died in combat!");
         }
@@ -95,25 +95,22 @@ public class AttackCommand : ICommand
     /// <param name="enemy">The enemy defending against the attack.</param>
     /// <param name="attackType">The combat style chosen by the player.</param>
     /// <returns>An <see cref="AttackResult"/> containing the calculated damage and survival status.</returns>
-    private static AttackResult PerformCombatExchange(Player executor, Enemy enemy, AttackType attackType)
+    private static AttackResult PerformCombatExchange(Player executor, Enemy enemy, Func<Player, AttackVisitor> visitorFactory)
     {
         IInventoryItem? activeItem = executor.RightHand ?? executor.LeftHand;
+        var visitor = visitorFactory(executor);
 
-        var visitor = AttackFactory.Create(attackType, executor);
-        
-        if (activeItem != null)
-            activeItem.Accept(visitor);
-        else
-            visitor.VisitNonWeapon();
+        if (activeItem != null) activeItem.Accept(visitor);
+        else visitor.VisitNonWeapon();
 
         int damageDealt = Math.Max(0, visitor.CalculatedDamage - enemy.Armor);
-        enemy.TakeDamage(damageDealt);
+        enemy.TakeDamage(damageDealt, executor);
 
         int damageTaken = 0;
         if (!enemy.IsDead)
         {
             damageTaken = Math.Max(0, enemy.AttackDamage - visitor.CalculatedDefense);
-            executor.TakeDamage(damageTaken);
+            executor.TakeDamage(damageTaken, enemy);
         }
 
         return new AttackResult(damageDealt, damageTaken, enemy.IsDead, executor.IsDead);

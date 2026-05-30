@@ -67,7 +67,7 @@ public class MoveCommand : ICommand
         {
             executor.SetLogMessage($"{otherPlayer.Name} stands in your way.");
         }
-        else if (state.Map.GetTileAt(targetX, targetY) == TerrainType.Wall)
+        else if (!state.Map.GetTileAt(targetX, targetY).IsWalkable)
         {
             state.SystemLogs.Notify(new SystemLogData(LogType.Movement,
                 $"{executor.Name} bumped into a cold stone wall."));
