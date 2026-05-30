@@ -31,8 +31,8 @@ public class GreenhouseThemeFactory : IThemeFactory
     public Enemy CreateEnemy(int index, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents, ISubject<EnemyHeardNoiseData> heardNoiseEvents, ISubject<SystemLogData> systemLogs)
     {
         return index % 2 == 0
-            ? new Enemy("Mutated Mandrake", "Plant", 25, 10, 1, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new CowardlyBehavior())
-            : new Enemy("Carnivorous Plant", "Plant", 40, 18, 3, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new AggressiveBehavior());
+            ? new Enemy("Mutated Mandrake", "Plant", 25, 10, 1, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new CowardlyState(), new CowardlyBehavior())
+            : new Enemy("Carnivorous Plant", "Plant", 40, 18, 3, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new AggressiveState(), new AggressiveBehavior());
     }
 
     /// <summary>

@@ -32,8 +32,8 @@ public class LaboratoryThemeFactory : IThemeFactory
     public Enemy CreateEnemy(int index, ISubject<NoiseData> NoiseEvents, ISubject<EnemyDeathData> DeathEvents, ISubject<EnemyHeardNoiseData> heardNoiseEvents, ISubject<SystemLogData> systemLogs)
     {
         return index % 2 == 0
-            ? new Enemy("Acid Slime", "Slime", 30, 15, 0, NoiseEvents, DeathEvents, heardNoiseEvents, systemLogs, new CowardlyBehavior())
-            : new Enemy("Flesh Golem", "Golem", 60, 20, 5, NoiseEvents, DeathEvents, heardNoiseEvents, systemLogs, new AggressiveBehavior());
+            ? new Enemy("Acid Slime", "Slime", 30, 15, 0, NoiseEvents, DeathEvents, heardNoiseEvents, systemLogs, new CowardlyState(), new CowardlyBehavior())
+            : new Enemy("Flesh Golem", "Golem", 60, 20, 5, NoiseEvents, DeathEvents, heardNoiseEvents, systemLogs, new AggressiveState(), new AggressiveBehavior());
     }
 
     /// <summary>

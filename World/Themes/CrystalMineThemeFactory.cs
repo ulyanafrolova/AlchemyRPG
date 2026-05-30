@@ -31,8 +31,8 @@ public class CrystalMineThemeFactory : IThemeFactory
     public Enemy CreateEnemy(int index, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents, ISubject<EnemyHeardNoiseData> heardNoiseEvents, ISubject<SystemLogData> systemLogs)
     {
         return index % 2 == 0
-            ? new Enemy("Crystal Basilisk", "Basilisk", 45, 25, 6, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new CowardlyBehavior())
-            : new Enemy("Stone Gargoyle", "Gargoyle", 80, 15, 10, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new AggressiveBehavior());
+            ? new Enemy("Crystal Basilisk", "Basilisk", 45, 25, 6, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new CowardlyState(), new CowardlyBehavior())
+            : new Enemy("Stone Gargoyle", "Gargoyle", 80, 15, 10, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new AggressiveState(), new AggressiveBehavior());
     }
 
 

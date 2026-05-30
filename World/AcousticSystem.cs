@@ -56,7 +56,7 @@ public class AcousticSystem : IAcousticService
                 int ny = current.y + dy[i];
 
                 // Ensure neighbor is within map boundaries and is a traversable floor tile
-                if (nx >= 0 && nx < map.Width && ny >= 0 && ny < map.Height && map.GetTileAt(nx, ny) != TerrainType.Wall)
+                if (nx >= 0 && nx < map.Width && ny >= 0 && ny < map.Height && map.GetTileAt(nx, ny).IsWalkable)
                 {
                     // If this tile hasn't been reached yet, record its distance and continue expansion
                     if (!distances.ContainsKey((nx, ny)))
