@@ -8,6 +8,7 @@ namespace AlchemyRPG;
 /// </summary>
 public abstract class Entity
 {
+    public abstract void Accept(IEntityVisitor visitor);
     /// <summary>
     /// Gets or sets the display name of the entity.
     /// </summary>
@@ -58,7 +59,7 @@ public abstract class Entity
     /// <summary>
     /// Reduces the entity's health by the specified amount. Ensures health does not drop below zero.
     /// </summary>
-    public virtual void TakeDamage(int amount)
+    public virtual void TakeDamage(int amount, Entity? source = null)
     {
         Health -= amount;
         if (Health < 0) Health = 0;

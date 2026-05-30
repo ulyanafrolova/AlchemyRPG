@@ -21,7 +21,7 @@ public class CowardlyBehavior : IKinsmanDeathBehavior
 {
     public void React(Enemy enemy, ISubject<SystemLogData> systemLogs)
     {
-        enemy.ModifyAttackDamage(-2);
+        enemy.AddDamageModifier(-2);
         systemLogs.Notify(new SystemLogData(LogType.Combat,
             $"[ModifierApplied] Target:{enemy.Name}, Attribute:Attack, Delta:-2, Reason:KinsmanDeath_Cowardly"));
     }
@@ -34,7 +34,7 @@ public class AggressiveBehavior : IKinsmanDeathBehavior
 {
     public void React(Enemy enemy, ISubject<SystemLogData> systemLogs)
     {
-        enemy.ModifyAttackDamage(3);
+        enemy.AddDamageModifier(3);
         systemLogs.Notify(new SystemLogData(LogType.Combat,
             $"[ModifierApplied] Target:{enemy.Name}, Attribute:Attack, Delta:+3, Reason:KinsmanDeath_Aggressive"));
     }

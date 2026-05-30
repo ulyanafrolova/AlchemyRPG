@@ -1,175 +1,322 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace AlchemyRPG;
 
 /// <summary>
-/// Represents a hostile non-player character in the game world.
-/// Implements the strictly typed Observer interfaces to react to environmental noises and the deaths of other enemies.
+/// Represents the authoritative domain entity for a non-player character (Enemy).
 /// </summary>
+/// <remarks>
+/// Acts as a complex Aggregate Root combining multiple behavioral patterns:
+/// - State Pattern (<see cref="IEnemyState"/>) for dynamic AI decision-making.
+/// - Strategy Pattern (<see cref="IKinsmanDeathBehavior"/>) for reactive morale systems.
+/// - Observer Pattern (<see cref="IObserver{T}"/>) for asynchronous acoustic and domain event processing.
+/// </remarks>
 public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
 {
+    // Cardinal direction vectors (Up, Down, Left, Right) used for grid-based spatial calculations.
     private static readonly int[] Dx = { 0, 0, -1, 1 };
     private static readonly int[] Dy = { -1, 1, 0, 0 };
+    
+    /// <summary>
+    /// The default temperament of the enemy to which it reverts when no active stimuli are present.
+    /// </summary>
+    private IEnemyState _baseState;
+    
     private readonly ISubject<SystemLogData> _systemLogs;
-    
-    /// <summary>
-    /// Gets the species or classification of the enemy (e.g., "Goblin", "Skeleton").
-    /// Used to determine group behavior and reactions to kinsman deaths.
-    /// </summary>
-    public string Species { get; }
-    
-    /// <summary>
-    /// Gets the current attack damage of the enemy. This value can be modified dynamically.
-    /// </summary>
-    public int AttackDamage { get; private set; }
-    
-    /// <summary>
-    /// Gets the innate armor value of the enemy, which reduces incoming damage.
-    /// </summary>
-    public int Armor { get; }
-
     private readonly IKinsmanDeathBehavior _deathBehavior;
+    
+    // Event bus subscriptions. Tracked internally to ensure safe disposal upon entity death.
     private readonly ISubject<NoiseData> _noiseEvents;
     private readonly ISubject<EnemyDeathData> _deathEvents;
     private readonly ISubject<EnemyHeardNoiseData> _heardNoiseEvents;
 
+    public string Species { get; }
+    
+    private readonly int _baseAttackDamage;
+    private int _attackDamageModifier = 0;
+    
     /// <summary>
-    /// Initializes a new instance of the <see cref="Enemy"/> class.
+    /// Gets the dynamically calculated combat damage, ensuring it never drops below zero.
     /// </summary>
+    public int AttackDamage => Math.Max(0, _baseAttackDamage + _attackDamageModifier);
+    public int Armor { get; }
+
+    public int MaxHealth { get; }
+    
+    /// <summary>
+    /// A localized spatial memory of the last acoustic stimulus.
+    /// </summary>
+    private (int X, int Y)? _lastHeardNoise;
+
+    public void HearNoise(int x, int y) => _lastHeardNoise = (x, y);
+    public void ForgetNoise() => _lastHeardNoise = null;
+    
+    private IEnemyState _currentState;
+
+    /// <summary>
+    /// Permanently alters the foundational temperament of the enemy and immediately transitions to it.
+    /// </summary>
+    public void ChangeBaseState(IEnemyState newBaseState, string reason = "Permanent temperament shift")
+    {
+        _baseState = newBaseState;
+        ChangeState(newBaseState, reason);
+    }
+
     public Enemy(
-        string name,
-        string species,
-        int health,
-        int attackDamage,
-        int armor,
-        ISubject<NoiseData> noiseEvents,
-        ISubject<EnemyDeathData> deathEvents,
-        ISubject<EnemyHeardNoiseData> heardNoiseEvents,
-        ISubject<SystemLogData> systemLogs,
-        IKinsmanDeathBehavior? deathBehavior = null)
+        string name, string species, int health, int attackDamage, int armor,
+        ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents,
+        ISubject<EnemyHeardNoiseData> heardNoiseEvents, ISubject<SystemLogData> systemLogs,
+        IEnemyState initialState, IKinsmanDeathBehavior? deathBehavior = null)
         : base(name, health)
     {
         Species = species;
-        AttackDamage = attackDamage;
+        _baseAttackDamage = attackDamage;
         Armor = armor;
+        MaxHealth = health;
 
         _noiseEvents = noiseEvents;
         _deathEvents = deathEvents;
         _heardNoiseEvents = heardNoiseEvents;
-        _deathBehavior = deathBehavior ?? new NeutralBehavior();
         _systemLogs = systemLogs;
-        
-        // Subscribe to relevant domain events upon creation
+
+        _baseState = initialState;
+        _currentState = initialState;
+        _deathBehavior = deathBehavior ?? new NeutralBehavior();
+
+        // Establish structural coupling to the domain event buses.
         _noiseEvents.Subscribe(this);
         _deathEvents.Subscribe(this);
     }
+    public void RevertToBaseState(string reason)
+    {
+        ChangeState(_baseState, reason);
+    }
+    public void ChangeState(IEnemyState newState, string reason = "Logic transition")
+    {
+        if (_currentState != null && _currentState.Name == newState.Name)
+            return;
+
+        _currentState = newState;
+        _systemLogs.Notify(new SystemLogData(LogType.System, $"{Name} changed state to {newState.Name}. Reason: {reason}"));
+    }
 
     /// <summary>
-    /// Handles incoming noise events. If the noise reaches the enemy's coordinates, 
-    /// it notifies the system that the enemy has detected the sound.
+    /// The primary execution tick for the AI entity. Delegates decision-making to the active state strategy.
+    /// </summary>
+    public void Update(GameState state, Random rand)
+    {
+        if (IsDead) return;
+        _currentState.Update(this, state, rand);
+    }
+
+    /// <summary>
+    /// Handles asynchronous acoustic stimulus.
     /// </summary>
     public void OnNext(NoiseData noise)
     {
         if (noise.ReachedTiles.TryGetValue((this.X, this.Y), out int distanceToSource))
         {
+            HearNoise(noise.SourceX, noise.SourceY);
             _heardNoiseEvents.Notify(new EnemyHeardNoiseData(Species, X, Y, noise.SourceX, noise.SourceY, distanceToSource));
         }
     }
 
     /// <summary>
-    /// The primary update loop, invoked periodically by the GameEngine.
+    /// Processes incoming damage and triggers state-specific reactions or structural teardown upon death.
     /// </summary>
-    /// <param name="state">The current global state of the game.</param>
-    /// <param name="rand">The random number generator instance.</param>
-    public void Update(GameState state, Random rand)
+    public override void TakeDamage(int amount, Entity? source = null)
     {
-        if (IsEngagedInCombat(state)) return;
-        MoveRandomly(state, rand);
-    }
+        if (IsDead) return;
+        bool wasDead = IsDead;
+        
+        base.TakeDamage(amount, source);
 
-    /// <summary>
-    /// Checks if the enemy is adjacent to any active player, preventing them from moving if engaged in melee.
-    /// </summary>
-    private bool IsEngagedInCombat(GameState state)
-    {
-        return state.GetAllActivePlayers().Any(p =>
-            Math.Abs(this.X - p.X) <= 1 && Math.Abs(this.Y - p.Y) <= 1);
-    }
-
-    /// <summary>
-    /// Executes a random movement in one of the four cardinal directions, checking for walls and player collisions.
-    /// </summary>
-    private void MoveRandomly(GameState state, Random rand)
-    {
-        int direction = rand.Next(4);
-        int newX = X + Dx[direction];
-        int newY = Y + Dy[direction];
-
-        var map = state.Map;
-        if (newX >= 0 && newX < map.Width && newY >= 0 && newY < map.Height)
+        if (!IsDead)
         {
-            if (map.IsWalkable(newX, newY))
+            _currentState.OnTakeDamage(this, _systemLogs, source);
+        }
+        else if (IsDead && !wasDead)
+        {
+            TriggerDeathProcessing();
+        }
+    }
+    public int DistanceTo(int x, int y) => Math.Abs(X - x) + Math.Abs(Y - y);
+
+    /// <summary>
+    /// Attempts to find a movement vector that increases the distance from all known threats.
+    /// </summary>
+    /// <remarks>
+    /// Evaluates adjacent tiles against all provided threats in O(T) time where T is the number of threats.
+    /// Does not utilize advanced pathfinding (e.g., A* or Dijkstra), acting strictly on local adjacency analysis.
+    /// </remarks>
+    public bool TryMoveSafely(List<Player> threats, GameState state, Random rand)
+    {
+        var validMoves = new List<(int dx, int dy)>();
+
+        for (int i = 0; i < 4; i++)
+        {
+            int nx = X + Dx[i];
+            int ny = Y + Dy[i];
+
+            if (!state.Map.IsWalkable(nx, ny) || state.GetAllActivePlayers().Any(p => p.X == nx && p.Y == ny))
+                continue;
+
+            bool isSafe = true;
+            foreach (var threat in threats)
             {
-                bool tileOccupiedByPlayer = state.GetAllActivePlayers()
-                                                 .Any(p => p.X == newX && p.Y == newY);
-                if (!tileOccupiedByPlayer)
+                // Verify that moving to the adjacent tile does not strictly decrease the distance to the threat.
+                if ((Math.Abs(nx - threat.X) + Math.Abs(ny - threat.Y)) < DistanceTo(threat.X, threat.Y))
                 {
-                    Teleport(newX, newY, state.Map);
+                    isSafe = false;
+                    break;
                 }
             }
+
+            if (isSafe)
+                validMoves.Add((Dx[i], Dy[i]));
+        }
+
+        if (validMoves.Count > 0)
+        {
+            var move = validMoves[rand.Next(validMoves.Count)];
+            Teleport(X + move.dx, Y + move.dy, state.Map);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Executes a greedy, single-step movement towards a specified target coordinate.
+    /// Prioritizes movement along the axis with the greatest distance delta.
+    /// </summary>
+    public bool TryMoveTowards(int targetX, int targetY, GameState state)
+    {
+        int dx = Math.Sign(targetX - X);
+        int dy = Math.Sign(targetY - Y);
+
+        if (Math.Abs(targetX - X) > Math.Abs(targetY - Y))
+            return (dx != 0 && TryMove(dx, 0, state)) || (dy != 0 && TryMove(0, dy, state));
+        else
+            return (dy != 0 && TryMove(0, dy, state)) || (dx != 0 && TryMove(dx, 0, state));
+    }
+
+    /// <summary>
+    /// Analyzes adjacent valid tiles and executes a move to the tile that maximizes distance from the target.
+    /// </summary>
+    public bool TryMoveAwayFrom(int targetX, int targetY, GameState state, Random rand)
+    {
+        var validMoves = new List<(int nx, int ny, int dist)>();
+
+        for (int i = 0; i < 4; i++)
+        {
+            int nx = X + Dx[i];
+            int ny = Y + Dy[i];
+
+            if (state.Map.IsWalkable(nx, ny) && !state.GetAllActivePlayers().Any(p => p.X == nx && p.Y == ny))
+            {
+                int distToTarget = Math.Abs(nx - targetX) + Math.Abs(ny - targetY);
+                validMoves.Add((nx, ny, distToTarget));
+            }
+        }
+        
+        var bestMoves = validMoves.OrderByDescending(m => m.dist).ToList();
+
+        if (bestMoves.Count > 0)
+        {
+            var optimalDist = bestMoves.First().dist;
+            var optimalMoves = bestMoves.Where(m => m.dist == optimalDist).ToList();
+            var chosenMove = optimalMoves[rand.Next(optimalMoves.Count)];
+
+            Teleport(chosenMove.nx, chosenMove.ny, state.Map);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Validates and applies a localized movement vector if the destination is unobstructed.
+    /// </summary>
+    private bool TryMove(int dx, int dy, GameState state)
+    {
+        int nx = X + dx;
+        int ny = Y + dy;
+        
+        if (state.Map.IsWalkable(nx, ny) && !state.GetAllActivePlayers().Any(p => p.X == nx && p.Y == ny))
+        {
+            Teleport(nx, ny, state.Map);
+            return true;
+        }
+        return false;
+    }
+
+    public void MoveRandomly(GameState state, Random rand)
+    {
+        int dir = rand.Next(4);
+        TryMove(Dx[dir], Dy[dir], state);
+    }
+
+    /// <summary>
+    /// Executes a combat action against the specified player, calculating effective damage against player evasion metrics.
+    /// </summary>
+    public void PerformAttack(Player player, GameState state)
+    {
+        int damage = Math.Max(0, AttackDamage - player.Dexterity);
+        player.TakeDamage(damage, this);
+        
+        state.SystemLogs.Notify(new SystemLogData(LogType.Combat, $"{Name} hit {player.Name} for {damage} dmg!"));
+        state.EventLog.Push($"{Name} bit {player.Name} for {damage}!");
+        
+        if (player.IsDead)
+        {
+            state.SystemLogs.Notify(new SystemLogData(LogType.System, $"{player.Name} was killed by {Name}."));
+            state.EventLog.Push($"[!] {player.Name} was killed by {Name}!");
         }
     }
 
-    /// <summary>
-    /// Dynamically modifies the enemy's attack damage (e.g., as a result of a behavioral reaction).
-    /// </summary>
-    public void ModifyAttackDamage(int delta)
+    public void AddDamageModifier(int delta)
     {
-        AttackDamage = Math.Max(0, AttackDamage + delta);
+        _attackDamageModifier += delta;
     }
-
+    
     /// <summary>
-    /// Triggers the specific behavioral response when an enemy of the same species dies.
-    /// </summary>
-    private void ReactToKinsmanDeath()
-    {
-        _deathBehavior.React(this, _systemLogs);
-    }
-
-    /// <summary>
-    /// Handles the event when any enemy dies on the map.
+    /// Invoked structurally when any enemy dies within the domain. 
+    /// Delegates logic to the strategy behavior if the deceased shares the same species.
     /// </summary>
     public void OnNext(EnemyDeathData deathInfo)
     {
-        if (deathInfo.Species == this.Species)
-        {
-            ReactToKinsmanDeath();
-        }
+        if (deathInfo.Species == this.Species) _deathBehavior.React(this, _systemLogs);
     }
 
     /// <summary>
-    /// Safely prepares the enemy for removal from the game world by unsubscribing from all events
-    /// and notifying its kinsmen of its demise.
+    /// Disconnects the entity from global domain buses.
+    /// Failure to call this upon destruction will result in memory leaks and ghost-processing by dead entities.
     /// </summary>
     public void TriggerDeathProcessing()
     {
         _noiseEvents.Unsubscribe(this);
         _deathEvents.Unsubscribe(this);
-        _deathEvents.Notify(new EnemyDeathData(this.Species));
+        _deathEvents.Notify(new EnemyDeathData(Species));
     }
+    
+    public override void Accept(IEntityVisitor visitor) => visitor.VisitEnemy(this);
 
     /// <summary>
-    /// Applies damage to the enemy's health pool and triggers death processing if health drops to zero.
+    /// Attempts to extract the coordinates of the most recently perceived acoustic event.
     /// </summary>
-    public override void TakeDamage(int amount)
+    /// <returns>True if a valid sound signature is held in memory; otherwise, false.</returns>
+    public bool TryGetNoiseTarget(out int x, out int y)
     {
-        bool wasDead = IsDead;
-        base.TakeDamage(amount);
-
-        if (IsDead && !wasDead)
+        if (_lastHeardNoise.HasValue)
         {
-            TriggerDeathProcessing();
+            x = _lastHeardNoise.Value.X;
+            y = _lastHeardNoise.Value.Y;
+            return true;
         }
+        x = 0; y = 0;
+        return false;
     }
 }
