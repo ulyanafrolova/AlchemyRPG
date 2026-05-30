@@ -46,20 +46,20 @@ public class NormalAttack : AttackVisitor
 
     public override void VisitHeavyWeapon(IWeapon weapon)
     {
-        CalculatedDamage = weapon.Damage + _player.Strength + _player.Aggression;
-        CalculatedDefense = _player.Strength + (_player.Luck + weapon.LuckBonus);
+        CalculatedDamage = weapon.TotalDamage + _player.Strength + _player.Aggression;
+        CalculatedDefense = _player.Strength + (_player.TotalLuck + weapon.TotalLuck);
     }
 
     public override void VisitLightWeapon(IWeapon weapon)
     {
-        CalculatedDamage = weapon.Damage + _player.Dexterity + (_player.Luck + weapon.LuckBonus);
-        CalculatedDefense = _player.Dexterity + (_player.Luck + weapon.LuckBonus);
+        CalculatedDamage = weapon.TotalDamage + _player.Dexterity + (_player.TotalLuck + weapon.TotalLuck);
+        CalculatedDefense = _player.Dexterity + (_player.TotalLuck + weapon.TotalLuck);
     }
 
     public override void VisitMagicWeapon(IWeapon weapon)
     {
-        CalculatedDamage = weapon.Damage + _player.Wisdom;
-        CalculatedDefense = _player.Dexterity + (_player.Luck + weapon.LuckBonus);
+        CalculatedDamage = weapon.TotalDamage + _player.Wisdom;
+        CalculatedDefense = _player.Dexterity + (_player.TotalLuck + weapon.TotalLuck);
     }
 
     public override void VisitNonWeapon()
@@ -79,13 +79,13 @@ public class StealthAttack : AttackVisitor
 
     public override void VisitHeavyWeapon(IWeapon weapon)
     {
-        CalculatedDamage = (weapon.Damage + _player.Strength + _player.Aggression) / 2;
+        CalculatedDamage = (weapon.TotalDamage + _player.Strength + _player.Aggression) / 2;
         CalculatedDefense = _player.Strength;
     }
 
     public override void VisitLightWeapon(IWeapon weapon)
     {
-        CalculatedDamage = (weapon.Damage + _player.Dexterity + (_player.Luck + weapon.LuckBonus)) * 2;
+        CalculatedDamage = (weapon.TotalDamage + _player.Dexterity + (_player.TotalLuck + weapon.TotalLuck)) * 2;
         CalculatedDefense = _player.Dexterity;
     }
 
@@ -113,24 +113,24 @@ public class MagicAttack : AttackVisitor
     public override void VisitHeavyWeapon(IWeapon weapon)
     {
         CalculatedDamage = 1;
-        CalculatedDefense = (_player.Luck + weapon.LuckBonus);
+        CalculatedDefense = (_player.TotalLuck + weapon.TotalLuck);
     }
 
     public override void VisitLightWeapon(IWeapon weapon)
     {
         CalculatedDamage = 1;
-        CalculatedDefense = (_player.Luck + weapon.LuckBonus);
+        CalculatedDefense = (_player.TotalLuck + weapon.TotalLuck);
     }
 
     public override void VisitMagicWeapon(IWeapon weapon)
     {
-        CalculatedDamage = weapon.Damage + _player.Wisdom;
+        CalculatedDamage = weapon.TotalDamage + _player.Wisdom;
         CalculatedDefense = _player.Wisdom * 2;
     }
 
     public override void VisitNonWeapon()
     {
         CalculatedDamage = 0;
-        CalculatedDefense = _player.Luck;
+        CalculatedDefense = _player.TotalLuck;
     }
 }
