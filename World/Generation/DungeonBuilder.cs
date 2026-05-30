@@ -38,7 +38,7 @@ public class DungeonBuilder : IDungeonBuilder
 
         for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
-                _map.SetTileAt(x, y, TerrainType.Floor);
+                _map.SetTileAt(x, y, new FloorTile());
 
         AddBorders();
         return this;
@@ -56,7 +56,7 @@ public class DungeonBuilder : IDungeonBuilder
 
         for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
-                _map.SetTileAt(x, y, TerrainType.Wall);
+                _map.SetTileAt(x, y, new WallTile());
 
         return this;
     }
@@ -112,6 +112,6 @@ public class DungeonBuilder : IDungeonBuilder
         for (int y = 0; y < _height; y++)
             for (int x = 0; x < _width; x++)
                 if (y == 0 || y == _height - 1 || x == 0 || x == _width - 1)
-                    _map!.SetTileAt(x, y, TerrainType.Floor);
+                    _map!.SetTileAt(x, y, new FloorTile());
     }
 }

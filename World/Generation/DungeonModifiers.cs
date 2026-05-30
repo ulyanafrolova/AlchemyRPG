@@ -24,8 +24,7 @@ public class CorridorsModifier : IDungeonModifier
         {
             for (int x = 0; x < map.Width; x++)
             {
-                if (maze[y, x] == TerrainType.Floor) 
-                    map.SetTileAt(x, y, TerrainType.Floor);
+                if (maze[y, x].IsWalkable) map.SetTileAt(x, y, new FloorTile());
             }
         }
     }
@@ -61,7 +60,7 @@ public class RoomsModifier : IDungeonModifier
             {
                 for (int rx = x; rx < x + w; rx++)
                 {
-                    map.SetTileAt(rx, ry, TerrainType.Floor);
+                    map.SetTileAt(rx, ry, new FloorTile());
                 }
             }
         }
@@ -94,16 +93,36 @@ public class CentralRoomModifier : IDungeonModifier
     public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
     {
         tutorialText.Add("- A massive central hall lies in the middle of the dungeon.");
-        
+
         int startX = (map.Width - _roomWidth) / 2;
         int startY = (map.Height - _roomHeight) / 2;
-        
+
         for (int y = startY; y < startY + _roomHeight; y++)
         {
             for (int x = startX; x < startX + _roomWidth; x++)
             {
-                map.SetTileAt(x, y, TerrainType.Floor);
+                map.SetTileAt(x, y, new FloorTile());
             }
         }
+    }
+}
+
+/// <summary>
+/// A modifier strategy that spawns various items throughout the dungeon.
+/// </summary>
+public class ItemsModifier : IDungeonModifier
+{
+    public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
+    {
+        map.SpawnItemRandomly(rand, new SlottedSword());
+        
+        map.SpawnItemRandomly(rand, new ItemHolder(2));
+        map.SpawnItemRandomly(rand, new ItemHolder(3));
+        
+        map.SpawnItemRandomly(rand, new StrengthStone());
+        map.SpawnItemRandomly(rand, new WisdomStone());
+        map.SpawnItemRandomly(rand, new LuckStone());
+
+        tutorialText.Add("Slotted weapons and magical stones are hidden here.");
     }
 }

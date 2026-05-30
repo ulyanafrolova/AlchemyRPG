@@ -37,16 +37,17 @@ public class DungeonDirector
     {
         // 1. Configure architectural modifiers via the factory (Rooms, Corridors, etc.)
         themeFactory.ConfigureBuilder(_builder);
-        
+
         // 2. Populate the dungeon with content (Artifacts, Loot, Enemies)
         _builder.ApplyModifier(new ThemePopulatorModifier(
-            themeFactory, 
-            lootCount: 10, 
+            themeFactory,
+            lootCount: 10,
             enemyCount: 6,
-            noiseEvents, 
-            deathEvents, 
-            heardNoiseEvents, 
+            noiseEvents,
+            deathEvents,
+            heardNoiseEvents,
             systemLogs));
+        _builder.ApplyModifier(new ItemsModifier());
     }
 
     /// <summary>
