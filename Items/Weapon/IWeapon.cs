@@ -5,6 +5,7 @@
 /// </summary>
 public interface IWeapon : IInventoryItem
 {
+    int Range { get; }
     /// <summary>
     /// Gets the base damage output of the weapon
     /// </summary>
@@ -28,3 +29,8 @@ public interface ILightWeapon : IWeapon { }
 /// Used strictly for Visitor pattern type resolution
 /// </summary>
 public interface IMagicWeapon : IWeapon { }
+
+/// <summary>
+/// A marker interface denoting a weapon that can contain slotted items
+/// </summary>
+public interface ISlottedWeapon : IHeavyWeapon, ISlotContainer { }

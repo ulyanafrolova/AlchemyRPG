@@ -9,24 +9,32 @@ namespace AlchemyRPG;
 /// </summary>
 public abstract class BaseWeapon : IWeapon
 {
+    public virtual int Range => 1;
     /// <summary>Gets the display name of the weapon.</summary>
     public abstract string Name { get; }
-    
+
     /// <summary>Gets the base damage output of the weapon.</summary>
     public abstract int Damage { get; }
-    
+
     /// <summary>Gets the luck modifier provided by the weapon. Defaults to 0.</summary>
     public virtual int LuckBonus => 0;
-    
+
     /// <summary>Gets the strength modifier provided by the weapon. Defaults to 0.</summary>
     public virtual int StrengthBonus => 0;
-    
+    public virtual int WisdomBonus => 0;
+
     /// <summary>Indicates whether the weapon occupies both hand slots.</summary>
     public abstract bool IsTwoHanded { get; }
 
     /// <summary>Gets the unique identifier for this specific weapon instance.</summary>
     public Guid Id { get; } = Guid.NewGuid();
-
+    protected BaseWeapon()
+    {
+    }
+    public virtual int TotalDamage => Damage;
+    public virtual int TotalStrength => StrengthBonus;
+    public virtual int TotalWisdom => WisdomBonus;
+    public virtual int TotalLuck => LuckBonus;
     /// <summary>
     /// Handles the logic when the player picks up the weapon from the map.
     /// Transfers the weapon from the map grid into the player's backpack.
@@ -40,23 +48,24 @@ public abstract class BaseWeapon : IWeapon
     /// <summary>
     /// Handles the logic of equipping the weapon to the appropriate hand(s).
     /// </summary>
-    public void Equip(Player player, HandSide side)
+    public void Equip(Player player, IEquipSlot slot)
     {
-        if (IsTwoHanded) player.EquipTwoHanded(this);
-        else if (side == HandSide.Left) player.EquipLeftHand(this);
-        else player.EquipRightHand(this);
+        if (IsTwoHanded)
+            new TwoHandedSlot().Equip(this, player);
+        else
+            slot.Equip(this, player);
     }
-    
+
     /// <summary>
     /// Accepts a combat visitor to calculate damage and defense based on the weapon's physical type.
     /// </summary>
     public abstract void Accept(IAttackVisitor visitor);
-    
+
     /// <summary>
     /// Accepts a generic item visitor, forcing derived classes to explicitly resolve their type 
     /// for DTO mapping and symbol rendering.
     /// </summary>
-    public abstract T Accept<T>(IItemVisitor<T> visitor); 
+    public abstract T Accept<T>(IItemVisitor<T> visitor);
 }
 
 /// <summary>
