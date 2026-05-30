@@ -10,24 +10,33 @@ public interface IItemVisitor<T>
 {
     /// <summary>Executes the operation for a heavy weapon.</summary>
     T VisitHeavyWeapon(IHeavyWeapon weapon);
-    
+
     /// <summary>Executes the operation for a light weapon.</summary>
     T VisitLightWeapon(ILightWeapon weapon);
-    
+
     /// <summary>Executes the operation for a magic weapon.</summary>
     T VisitMagicWeapon(IMagicWeapon weapon);
-    
+
     /// <summary>Executes the operation for premium gold currency.</summary>
     T VisitGold(Gold gold);
-    
+
     /// <summary>Executes the operation for standard coin currency.</summary>
     T VisitCoin(Coin coin);
-    
+
     /// <summary>Executes the operation for useless junk items.</summary>
     T VisitJunk(Junk junk);
-    
+
     /// <summary>Executes a fallback operation for an unknown or unclassified item.</summary>
     T VisitUnknown(IItem item);
+
+    /// <summary>Executes the operation for passive items that provide non-combat benefits.</summary>
+    T VisitPassive(PassiveItem passive);
+
+    /// <summary>Executes the operation for item holders, which are typically containers or accessories.</summary>
+    T VisitHolder(ItemHolder holder);
+
+    /// <summary>Executes the operation for slotted weapons that allow modular attachments.</summary>
+    T VisitSlottedWeapon(ISlottedWeapon weapon);
 }
 
 /// <summary>
@@ -43,5 +52,8 @@ public class ItemToDTOVisitor : IItemVisitor<ItemDTO>
     public ItemDTO VisitGold(Gold gold) => new GoldDTO();
     public ItemDTO VisitCoin(Coin coin) => new CoinDTO();
     public ItemDTO VisitJunk(Junk junk) => new JunkDTO();
-    public ItemDTO VisitUnknown(IItem item) => new JunkDTO(); 
+    public ItemDTO VisitUnknown(IItem item) => new JunkDTO();
+    public ItemDTO VisitPassive(PassiveItem passive) => new JunkDTO();
+    public ItemDTO VisitHolder(ItemHolder holder) => new JunkDTO();
+    public ItemDTO VisitSlottedWeapon(ISlottedWeapon weapon) => new WeaponDTO();
 }

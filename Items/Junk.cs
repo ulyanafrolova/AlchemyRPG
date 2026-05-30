@@ -1,4 +1,6 @@
-﻿namespace AlchemyRPG;
+﻿using System;
+
+namespace AlchemyRPG;
 
 /// <summary>
 /// The base abstract class for useless items that occupy backpack space 
@@ -10,7 +12,11 @@ public abstract class Junk : IInventoryItem
     public Guid Id { get; } = Guid.NewGuid();
     public int LuckBonus => 0;
     public bool IsTwoHanded => false;
-
+    public int TotalDamage => 0;
+    public int TotalStrength => 0;
+    public int TotalWisdom => 0;
+    public int TotalLuck => 0;
+    
     public void OnPickUp(GameState state, Player executor)
     {
         executor.AddToBackpack(this);
@@ -19,10 +25,9 @@ public abstract class Junk : IInventoryItem
         state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"{executor.Name} picked up {Name}"));
     }
 
-    public void Equip(Player player, HandSide side)
+    public void Equip(Player player, IEquipSlot slot)
     {
-        if (side == HandSide.Left) player.EquipLeftHand(this);
-        else player.EquipRightHand(this);
+        slot.Equip(this, player);
     }
 
     public T Accept<T>(IItemVisitor<T> visitor) => visitor.VisitJunk(this);

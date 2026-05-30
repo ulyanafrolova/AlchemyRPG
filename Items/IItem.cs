@@ -36,15 +36,25 @@ public interface IInventoryItem : IItem
     /// Indicates whether the item requires both hands to be equipped. 
     /// </summary>
     bool IsTwoHanded { get; }
-
-    int LuckBonus { get; }
+    int TotalDamage { get; }
+    int TotalStrength { get; }
+    int TotalWisdom { get; }
+    int TotalLuck { get; }
 
     /// <summary>
     /// Attempts to equip the item to the specified hand of the player.
     /// </summary>
     /// <param name="player">The player equipping the item.</param>
     /// <param name="side">The requested hand to hold the item.</param>
-    void Equip(Player player, HandSide side);
-
+    void Equip(Player player, IEquipSlot slot);
     void Accept(IAttackVisitor visitor);
+}
+
+/// <summary>
+/// Defines the contract for items that can contain other items, such as slotted weapons or backpacks.
+/// </summary>
+public interface ISlotContainer : IInventoryItem
+{
+    bool AcceptItem(IInventoryItem item);
+    IReadOnlyList<IInventoryItem> GetSlottedItems();
 }
