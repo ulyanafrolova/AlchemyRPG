@@ -11,13 +11,14 @@ public class PlayerUIFeedbackObserver : IObserver<PlayerHeardNoiseData>
     /// A reference to the active player collection, allowing the observer to look up 
     /// specific players by their identity to route feedback messages correctly.
     /// </summary>
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, Player> _players;
+    private readonly IReadOnlyDictionary<int, Player> _players;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PlayerUIFeedbackObserver"/> class.
     /// </summary>
     /// <param name="players">The thread-safe dictionary of active players.</param>
-    public PlayerUIFeedbackObserver(System.Collections.Concurrent.ConcurrentDictionary<int, Player> players)
+
+    public PlayerUIFeedbackObserver(IReadOnlyDictionary<int, Player> players)
     {
         _players = players;
     }
@@ -32,7 +33,7 @@ public class PlayerUIFeedbackObserver : IObserver<PlayerHeardNoiseData>
     {
         // Identify the player by name and update their local message buffer
         var player = _players.Values.FirstOrDefault(p => p.Name == data.ListenerName);
-        
+
         if (player != null)
         {
             player.SetLogMessage($"*{player.Name} hear a noise {data.Distance} steps away!*");
