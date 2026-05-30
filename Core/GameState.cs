@@ -10,6 +10,10 @@ using System.Collections.Generic;
 public class GameState
 {
     /// <summary>
+    /// Gets the service responsible for calculating line-of-sight and field-of-view for all entities
+    /// </summary>
+    public required IVisionService Vision { get; init; }
+    /// <summary>
     /// Gets the immutable configuration settings applied to the current session.
     /// </summary>
     public required GameConfig Config { get; init; }
@@ -77,8 +81,8 @@ public class GameState
     /// <summary>
     /// A thread-safe collection of all currently connected and active players in the session.
     /// </summary>
-    public ConcurrentDictionary<int, Player> Players { get; } = new();
-
+    private readonly ConcurrentDictionary<int, Player> _players = new();
+    public IReadOnlyDictionary<int, Player> Players => _players.AsReadOnly();
     /// <summary>
     /// Retrieves an enumeration of all active players participating in the session.
     /// </summary>
@@ -87,4 +91,13 @@ public class GameState
     {
         return Players.Values;
     }
+    /// <summary>
+    /// Attempts to add a new player to the active session. This method is thread-safe and ensures that player IDs are unique.
+    /// </summary>
+    internal bool TryAddPlayer(int id, Player p) => _players.TryAdd(id, p);
+    /// <summary>
+    /// Attempts to remove a player from the active session by their unique identifier.
+    /// </summary>
+    /// <returns>This method returns the removed player object if successful.</returns>
+    internal bool TryRemovePlayer(int id, out Player? p) => _players.TryRemove(id, out p);
 }

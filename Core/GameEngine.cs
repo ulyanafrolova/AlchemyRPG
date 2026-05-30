@@ -77,7 +77,7 @@ public class GameEngine
             var newPlayer = new Player($"Player {playerId}", spawn.Value.x, spawn.Value.y);
             newPlayer.InitializeHearing(State.NoiseEvents, State.PlayerHeardNoiseEvents);
 
-            State.Players.TryAdd(playerId, newPlayer);
+            State.TryAddPlayer(playerId, newPlayer);
             _playerCommandBuffers.TryAdd(playerId, new ConcurrentQueue<ICommand>());
 
             State.EventLog.Push($"Player {playerId} joined the game.");
@@ -94,9 +94,9 @@ public class GameEngine
     {
         lock (_syncRoot)
         {
-            if (State.Players.TryRemove(playerId, out Player? disconnectingPlayer))
+            if (State.TryRemovePlayer(playerId, out Player? disconnectingPlayer))
             {
-                disconnectingPlayer.TeardownHearing(State.NoiseEvents);
+                disconnectingPlayer?.TeardownHearing(State.NoiseEvents);
                 State.EventLog.Push($"Player {playerId} left the game.");
                 State.SystemLogs.Notify(new SystemLogData(LogType.System, $"Player {playerId} left the game."));
             }
@@ -131,67 +131,69 @@ public class GameEngine
 
         while (true)
         {
-            bool stateChanged = false;
-            bool enemiesNeedUpdate = false;
-
-            // Accumulate time delta for independent updates
-            enemyTickAccumulator += ServerTickRateMs;
-            if (enemyTickAccumulator >= EnemyUpdateIntervalMs)
+            try
             {
-                enemiesNeedUpdate = true;
-                enemyTickAccumulator = 0;
-            }
-
-            lock (_syncRoot)
-            {
-                if (State.IsGameOver)
+                bool stateChanged = false;
+                bool enemiesNeedUpdate = false;
+                // Accumulate time delta for independent updates
+                enemyTickAccumulator += ServerTickRateMs;
+                if (enemyTickAccumulator >= EnemyUpdateIntervalMs)
                 {
-                    // Handle game over logic here if needed
+                    enemiesNeedUpdate = true;
+                    enemyTickAccumulator = 0;
                 }
-                else
+                lock (_syncRoot)
                 {
-                    // Process all queued player commands
-                    foreach (var kvp in State.Players)
+                    if (State.IsGameOver)
                     {
-                        int pid = kvp.Key;
-                        Player player = kvp.Value;
-
-                        player.ClearLogMessage();
-
-                        if (_playerCommandBuffers.TryGetValue(pid, out var queue))
+                        // Handle game over logic here if needed
+                    }
+                    else
+                    {
+                        // Process all queued player commands
+                        foreach (var kvp in State.Players)
                         {
-                            while (queue.TryDequeue(out ICommand? command))
+                            int pid = kvp.Key;
+                            Player player = kvp.Value;
+                            player.ClearLogMessage();
+
+                            if (_playerCommandBuffers.TryGetValue(pid, out var queue))
                             {
-                                if (command.CanExecute(State, player))
+                                while (queue.TryDequeue(out ICommand? command))
                                 {
-                                    command.Execute(State, player);
+                                    if (command.CanExecute(State, player))
+                                    {
+                                        command.Execute(State, player);
+                                        stateChanged = true;
+                                    }
+                                }
+                            }
+                        }
+                        // Process entity updates 
+                        if (enemiesNeedUpdate)
+                        {
+                            foreach (var enemy in State.Map.Enemies.ToList())
+                            {
+                                if (!enemy.IsDead)
+                                {
+                                    enemy.Update(State, Random.Shared);
                                     stateChanged = true;
                                 }
                             }
                         }
                     }
+                }
 
-                    // Process entity updates 
-                    if (enemiesNeedUpdate)
-                    {
-                        foreach (var enemy in State.Map.Enemies)
-                        {
-                            if (!enemy.IsDead)
-                            {
-                                enemy.Update(State, Random.Shared);
-                                stateChanged = true;
-                            }
-                        }
-                    }
+                // Broadcast updates if the world state was modified
+                if (stateChanged)
+                {
+                    TriggerStateChange();
                 }
             }
-
-            // Broadcast updates if the world state was modified
-            if (stateChanged)
+            catch (Exception ex)
             {
-                TriggerStateChange();
+                _logger.Log(LogType.Error, $"[CRITICAL ENGINE FAILURE AVOIDED] {ex.Message}\n{ex.StackTrace}");
             }
-
             // The server yields a time quantum to the OS thread pool and wakes up for the next tick
             await Task.Delay(ServerTickRateMs);
         }

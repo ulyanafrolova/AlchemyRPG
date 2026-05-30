@@ -56,6 +56,7 @@ public static class StateFactory
         var state = new GameState
         {
             Config = config,
+            Vision = new VisionSystem(),
             Map = generatedMap,
             NoiseEvents = noiseEvents,
             DeathEvents = deathEvents,

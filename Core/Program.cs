@@ -154,7 +154,7 @@ class Program
     static void ClientLoop(NetworkClient client, ClientStateContainer stateContainer, IView view)
     {
         var inputController = new ClientInputController();
-        
+
         // Command registry for global client-side actions
         var globalActions = new Dictionary<ConsoleKey, IClientAction>
         {
@@ -163,13 +163,13 @@ class Program
             { ConsoleKey.H, new ShowHelpAction() },
             { Keybinds.Cancel, new ResetInputStateAction() }
         };
-        
+
         bool tutorialShown = false;
-        
+
         while (true)
         {
             var snapshot = stateContainer.GetState();
-            
+
             // Display tutorial screen upon successful initialization
             if (!tutorialShown && view.IsInitialized)
             {
@@ -177,12 +177,19 @@ class Program
                 view.RenderFullScreen("DUNGEON INSTRUCTIONS", view.TutorialText);
                 Console.Clear();
             }
-            
+
             if (snapshot != null)
             {
-                view.Render(snapshot, inputController.GetPrompt());
+                if (snapshot.LocalPlayer.Health <= 0)
+                {
+                    stateContainer.SetFatalError("GAME OVER", "You have been slain in the dungeon. Your journey ends here.");
+                }
+                else
+                {
+                    view.Render(snapshot, inputController.GetPrompt());
+                }
             }
-            
+
             if (stateContainer.HasError)
             {
                 var error = stateContainer.GetError();
@@ -190,11 +197,11 @@ class Program
                 client.Stop();
                 break;
             }
-            
+
             if (Console.KeyAvailable)
             {
                 var keyInfo = Console.ReadKey(true);
-                
+
                 // Process global UI commands first
                 if (globalActions.TryGetValue(keyInfo.Key, out var action))
                 {
@@ -211,7 +218,6 @@ class Program
                         client.SendCommand(commandDto);
                 }
             }
-            
             Thread.Sleep(30);
         }
     }
