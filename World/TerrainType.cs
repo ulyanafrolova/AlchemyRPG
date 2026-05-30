@@ -1,7 +1,16 @@
 namespace AlchemyRPG;
 
-public enum TerrainType : byte
+public interface ITile 
 {
-    Floor = 0,
-    Wall = 1
+    bool IsWalkable { get; }
+}
+
+public class FloorTile : ITile 
+{
+    public bool IsWalkable => true;
+}
+
+public class WallTile : ITile 
+{
+    public bool IsWalkable => false;
 }
