@@ -104,8 +104,7 @@ public class StateMapper
         {
             char[] row = new char[state.Map.Width];
             for (int x = 0; x < state.Map.Width; x++)
-                row[x] = state.Map.GetTileAt(x, y) == TerrainType.Wall ? Tiles.Wall : Tiles.Floor;
-            gridDto[y] = new string(row);
+                row[x] = state.Map.GetTileAt(x, y).IsWalkable ? Tiles.Floor : Tiles.Wall; gridDto[y] = new string(row);
         }
 
         return new InitialDataDTO

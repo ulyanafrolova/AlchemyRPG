@@ -1,24 +1,17 @@
 namespace AlchemyRPG;
 
 /// <summary>
-/// Defines a contract for the Visitor design pattern applied to incoming network commands.
-/// Ensures type-safe, polymorphic unwrapping of command DTOs received from the client.
+/// Visitor interface for mapping network command DTOs to game commands. Each visit method corresponds to a specific type of command and takes the corresponding DTO as a parameter. The return type is generic, allowing for flexibility in the type of result produced by the visitor (e.g., it could return a game command, a validation result, etc.).
 /// </summary>
-/// <typeparam name="T">The return type of the visitor operations (typically an executable ICommand).</typeparam>
+/// <typeparam name="T"></typeparam>
 public interface INetworkCommandVisitor<T>
 {
-    /// <summary>Processes a movement command request.</summary>
     T VisitMove(MoveCommandDTO dto);
-
-    /// <summary>Processes an equipment change command request.</summary>
     T VisitEquip(EquipCommandDTO dto);
-
-    /// <summary>Processes an item drop command request.</summary>
     T VisitDrop(DropCommandDTO dto);
-
-    /// <summary>Processes an item pick-up command request.</summary>
     T VisitPickUp(PickUpCommandDTO dto);
-
-    /// <summary>Processes a combat attack command request.</summary>
-    T VisitAttack(AttackCommandDTO dto);
+    T VisitInsert(InsertCommandDTO dto);
+    T VisitNormalAttack(NormalAttackCommandDTO dto);
+    T VisitStealthAttack(StealthAttackCommandDTO dto);
+    T VisitMagicAttack(MagicAttackCommandDTO dto);
 }

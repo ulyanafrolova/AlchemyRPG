@@ -1,52 +1,29 @@
 namespace AlchemyRPG;
 
 /// <summary>
-/// Defines a contract for mapping a network command DTO to an executable domain command.
+/// Maps network command DTOs to game commands. This allows the network layer to be decoupled from the game logic, and makes it easier to add new commands in the future without modifying the network code.
 /// </summary>
-public interface ICommandMapper
-{
-    /// <summary>
-    /// Maps the provided Data Transfer Object to a corresponding domain <see cref="ICommand"/>.
-    /// </summary>
-    ICommand? Map(NetworkCommandDTO dto);
-}
+public interface ICommandMapper { ICommand? Map(NetworkCommandDTO dto); }
 
 /// <summary>
-/// A concrete visitor that resolves the specific type of a <see cref="NetworkCommandDTO"/> 
-/// and instantiates the correct domain command.
+/// Visitor that maps network command DTOs to game commands. Each visit method creates a new instance of the corresponding game command based on the data in the DTO.
 /// </summary>
 public class CommandMappingVisitor : INetworkCommandVisitor<ICommand?>
 {
-    public CommandMappingVisitor()
-    {
-    }
-
-    public ICommand? VisitMove(MoveCommandDTO dto)
-        => new MoveCommand(dto.Dx, dto.Dy);
-
-    public ICommand? VisitEquip(EquipCommandDTO dto)
-        => new EquipCommand(dto.ItemId, (HandSide)dto.HandSide);
-
-    public ICommand? VisitDrop(DropCommandDTO dto)
-        => new DropCommand(dto.ItemId);
-
-    public ICommand? VisitPickUp(PickUpCommandDTO dto)
-        => new PickUpCommand();
-
-    public ICommand? VisitAttack(AttackCommandDTO dto)
-        => new AttackCommand(dto.TargetX, dto.TargetY, dto.AttackType);
+    public ICommand? VisitMove(MoveCommandDTO dto) => new MoveCommand(dto.Dx, dto.Dy);
+    public ICommand? VisitEquip(EquipCommandDTO dto) => new EquipCommand(dto.ItemId, dto.HandSide == 0 ? new LeftHandSlot() : new RightHandSlot());
+    public ICommand? VisitDrop(DropCommandDTO dto) => new DropCommand(dto.ItemId);
+    public ICommand? VisitPickUp(PickUpCommandDTO dto) => new PickUpCommand();
+    public ICommand? VisitInsert(InsertCommandDTO dto) => new InsertCommand(dto.ItemIdToInsert, dto.TargetContainerId);
+    public ICommand? VisitNormalAttack(NormalAttackCommandDTO dto) => new AttackCommand(dto.TargetX, dto.TargetY, p => new NormalAttack(p));
+    public ICommand? VisitStealthAttack(StealthAttackCommandDTO dto) => new AttackCommand(dto.TargetX, dto.TargetY, p => new StealthAttack(p));
+    public ICommand? VisitMagicAttack(MagicAttackCommandDTO dto) => new AttackCommand(dto.TargetX, dto.TargetY, p => new MagicAttack(p));
 }
 
 /// <summary>
-/// A factory translator that isolates the network layer from the core domain logic.
-/// It utilizes the Visitor pattern (Double Dispatch) to determine the exact type 
-/// of the incoming DTO and convert it into an executable command.
+/// Implements the ICommandMapper interface by using the CommandMappingVisitor to map network command DTOs to game commands. This class serves as the main entry point for mapping commands in the network layer.
 /// </summary>
 public class CommandMapper : ICommandMapper
 {
-    public ICommand? Map(NetworkCommandDTO dto)
-    {
-        var visitor = new CommandMappingVisitor();
-        return dto.Accept(visitor);
-    }
+    public ICommand? Map(NetworkCommandDTO dto) => dto.Accept(new CommandMappingVisitor());
 }
