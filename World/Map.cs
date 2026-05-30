@@ -8,10 +8,10 @@ public class Map
 {
     /// <summary>Gets the width of the map grid.</summary>
     public int Width { get; }
-    
+
     /// <summary>Gets the height of the map grid.</summary>
     public int Height { get; }
-    
+
     /// <summary>
     /// Gets a revision counter that increments whenever the item state changes. 
     /// Used by the <see cref="StateMapper"/> to optimize serialization.
@@ -21,20 +21,19 @@ public class Map
     /// <summary> 
     /// A 2D array representing the terrain grid. 
     /// </summary>
-    private readonly TerrainType[,] _grid;
+    private readonly ITile[,] _grid;
 
     /// <summary>
     /// Retrieves the terrain type at the specified coordinate.
     /// This is the primary method for accessing grid data.
     /// </summary>
-    public TerrainType GetTileAt(int x, int y) => _grid[y, x];
+    public ITile GetTileAt(int x, int y) => _grid[y, x];
 
     /// <summary>
     /// Updates the terrain type at the specified coordinate.
     /// This is intended for use during dungeon generation processes.
     /// </summary>
-    internal void SetTileAt(int x, int y, TerrainType tile) => _grid[y, x] = tile;
-
+    internal void SetTileAt(int x, int y, ITile tile) => _grid[y, x] = tile;
     /// <summary> 
     /// A collection storing all items placed on the map, indexed by their coordinate and item instance.
     /// </summary>
@@ -64,7 +63,7 @@ public class Map
     {
         Width = width;
         Height = height;
-        _grid = new TerrainType[height, width];
+        _grid = new ITile[height, width];
     }
 
     /// <summary>
@@ -73,7 +72,7 @@ public class Map
     public void PlaceItemAt(int x, int y, IItem item)
     {
         _items.Add((x, y, item));
-        Version++; 
+        Version++;
     }
 
     /// <summary>
@@ -82,7 +81,7 @@ public class Map
     public void RemoveItem(int x, int y, IItem item)
     {
         _items.Remove((x, y, item));
-        Version++; 
+        Version++;
     }
 
     /// <summary>
@@ -114,9 +113,9 @@ public class Map
     /// </summary>
     public bool IsWalkable(int x, int y)
     {
-        if (x < 0 || x >= Width || y < 0 || y >= Height || GetTileAt(x, y) == TerrainType.Wall)
+        if (x < 0 || x >= Width || y < 0 || y >= Height)
             return false;
-
+        if (!GetTileAt(x, y).IsWalkable) return false;
         if (GetEnemyAt(x, y) != null)
             return false;
 
@@ -133,7 +132,7 @@ public class Map
         int spawnX, spawnY;
         int attempts = 0;
         const int MaxAttempts = 100;
-        
+
         do
         {
             spawnX = rand.Next(1, Width - 1);
@@ -142,7 +141,7 @@ public class Map
             if (attempts >= MaxAttempts) return null;
         }
         while (!IsWalkable(spawnX, spawnY));
-        
+
         return (spawnX, spawnY);
     }
 }
