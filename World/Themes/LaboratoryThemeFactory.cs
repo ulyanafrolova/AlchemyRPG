@@ -29,11 +29,15 @@ public class LaboratoryThemeFactory : IThemeFactory
     /// </summary>
     /// <param name="rand">The random number generator used to select between different enemy types.</param>
     /// <returns>An <see cref="Enemy"/> instance (e.g., an Acid Slime or a Flesh Golem).</returns>
-    public Enemy CreateEnemy(int index, ISubject<NoiseData> NoiseEvents, ISubject<EnemyDeathData> DeathEvents, ISubject<EnemyHeardNoiseData> heardNoiseEvents, ISubject<SystemLogData> systemLogs)
+    public Enemy CreateEnemy(int index, ISubject<NoiseData> noiseEvents, ISubject<EnemyDeathData> deathEvents, ISubject<EnemyHeardNoiseData> heardNoiseEvents, ISubject<SystemLogData> systemLogs)
     {
-        return index % 2 == 0
-            ? new Enemy("Acid Slime", "Slime", 30, 15, 0, NoiseEvents, DeathEvents, heardNoiseEvents, systemLogs, new CowardlyState(), new CowardlyBehavior())
-            : new Enemy("Flesh Golem", "Golem", 60, 20, 5, NoiseEvents, DeathEvents, heardNoiseEvents, systemLogs, new AggressiveState(), new AggressiveBehavior());
+        return (index % 3) switch
+        {
+            0 => new Enemy("Acid Slime", "Slime", 30, 15, 0, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new CowardlyState(), new CowardlyBehavior()),
+            1 => new Enemy("Flesh Golem", "Golem", 60, 20, 5, noiseEvents, deathEvents, heardNoiseEvents, systemLogs, new AggressiveState(), new AggressiveBehavior()),
+            _ => new Enemy("Wandering Observer", "Construct", 45, 10, 2, noiseEvents, deathEvents, heardNoiseEvents, systemLogs,
+                    new NeutralState(() => new AggressiveState(), () => new CowardlyState()), new NeutralBehavior())
+        };
     }
 
     /// <summary>

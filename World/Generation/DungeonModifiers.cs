@@ -123,6 +123,8 @@ public class ItemsModifier : IDungeonModifier
         map.SpawnItemRandomly(rand, new WisdomStone());
         map.SpawnItemRandomly(rand, new LuckStone());
 
+        controls.Add($"[{Keybinds.Insert}] Insert");
+
         tutorialText.Add("Slotted weapons and magical stones are hidden here.");
     }
 }
