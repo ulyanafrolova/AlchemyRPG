@@ -18,7 +18,7 @@ public static class MapExtensions
     public static void SpawnItemRandomly(this Map map, Random rand, IItem item)
     {
         var spawn = map.GetRandomWalkableTile(rand);
-        if (spawn.HasValue) 
+        if (spawn.HasValue)
             map.PlaceItemAt(spawn.Value.x, spawn.Value.y, item);
     }
 

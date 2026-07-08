@@ -22,8 +22,8 @@ public class DungeonBuilder : IDungeonBuilder
     /// to prevent duplicate instructions if multiple modifiers attempt to register the same controls.
     /// </summary>
     private readonly HashSet<string> _instructions = [
-        $"[{Keybinds.MoveUp}{Keybinds.MoveDown}{Keybinds.MoveLeft}{Keybinds.MoveRight}] Move", 
-        $"[{Keybinds.Help}] Help", 
+        $"[{Keybinds.MoveUp}{Keybinds.MoveDown}{Keybinds.MoveLeft}{Keybinds.MoveRight}] Move",
+        $"[{Keybinds.Help}] Help",
         $"[{Keybinds.Journal}] Journal"
     ];
 

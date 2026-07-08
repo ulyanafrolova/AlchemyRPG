@@ -17,9 +17,9 @@ public class CorridorsModifier : IDungeonModifier
     public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
     {
         tutorialText.Add("- You must navigate through a twisting maze of corridors.");
-        
+
         var maze = Labyrinth.Generate(map.Width, map.Height);
-        
+
         for (int y = 0; y < map.Height; y++)
         {
             for (int x = 0; x < map.Width; x++)
@@ -50,12 +50,12 @@ public class RoomsModifier : IDungeonModifier
     public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
     {
         tutorialText.Add("- Explore various hidden rooms scattered across the area.");
-        
+
         for (int i = 0; i < _numberOfRooms; i++)
         {
             int w = rand.Next(3, 8), h = rand.Next(3, 6);
             int x = rand.Next(1, map.Width - w - 1), y = rand.Next(1, map.Height - h - 1);
-            
+
             for (int ry = y; ry < y + h; ry++)
             {
                 for (int rx = x; rx < x + w; rx++)
@@ -115,10 +115,10 @@ public class ItemsModifier : IDungeonModifier
     public void Apply(Map map, HashSet<string> controls, List<string> tutorialText, Random rand)
     {
         map.SpawnItemRandomly(rand, new SlottedSword());
-        
+
         map.SpawnItemRandomly(rand, new ItemHolder(2));
         map.SpawnItemRandomly(rand, new ItemHolder(3));
-        
+
         map.SpawnItemRandomly(rand, new StrengthStone());
         map.SpawnItemRandomly(rand, new WisdomStone());
         map.SpawnItemRandomly(rand, new LuckStone());

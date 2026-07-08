@@ -41,8 +41,8 @@ public static class Labyrinth
                 int wallX = current.X + (next.X - current.X) / 2;
                 int wallY = current.Y + (next.Y - current.Y) / 2;
 
-                grid[wallY, wallX] = new FloorTile(); 
-                grid[next.Y, next.X] = new FloorTile(); 
+                grid[wallY, wallX] = new FloorTile();
+                grid[next.Y, next.X] = new FloorTile();
 
                 stack.Push(next);
             }
@@ -52,14 +52,14 @@ public static class Labyrinth
         {
             if (grid[height - 3, x].IsWalkable)
             {
-                grid[height - 2, x] = new FloorTile(); 
+                grid[height - 2, x] = new FloorTile();
             }
         }
         for (int y = 1; y < height - 1; y++)
         {
             if (grid[y, width - 3].IsWalkable)
             {
-                grid[y, width - 2] = new FloorTile(); 
+                grid[y, width - 2] = new FloorTile();
             }
         }
 
@@ -80,10 +80,10 @@ public static class Labyrinth
     {
         var neighbors = new List<(int X, int Y)>();
 
-        if (x >= 3 && !grid[y, x - 2].IsWalkable) neighbors.Add((x - 2, y)); 
-        if (x <= width - 4 && !grid[y, x + 2].IsWalkable) neighbors.Add((x + 2, y)); 
-        if (y >= 3 && !grid[y - 2, x].IsWalkable) neighbors.Add((x, y - 2)); 
-        if (y <= height - 4 && !grid[y + 2, x].IsWalkable) neighbors.Add((x, y + 2)); 
+        if (x >= 3 && !grid[y, x - 2].IsWalkable) neighbors.Add((x - 2, y));
+        if (x <= width - 4 && !grid[y, x + 2].IsWalkable) neighbors.Add((x + 2, y));
+        if (y >= 3 && !grid[y - 2, x].IsWalkable) neighbors.Add((x, y - 2));
+        if (y <= height - 4 && !grid[y + 2, x].IsWalkable) neighbors.Add((x, y + 2));
 
         return neighbors;
     }
