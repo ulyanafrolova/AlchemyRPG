@@ -10,10 +10,10 @@ public class NoiseData
 {
     /// <summary>Gets the horizontal origin coordinate of the noise.</summary>
     public int SourceX { get; }
-    
+
     /// <summary>Gets the vertical origin coordinate of the noise.</summary>
     public int SourceY { get; }
-    
+
     /// <summary>
     /// Gets a dictionary mapping the coordinates of tiles reached by the sound 
     /// to their respective distance from the source.

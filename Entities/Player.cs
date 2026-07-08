@@ -14,7 +14,7 @@ namespace AlchemyRPG;
 public class Player : Entity, IObserver<NoiseData>
 {
     private ISubject<PlayerHeardNoiseData>? _playerHeardNoiseEvents;
-    
+
     private readonly int _baseStrength = 10;
     private readonly int _baseWisdom = 10;
     private readonly int _baseLuck = 5;
@@ -41,7 +41,7 @@ public class Player : Entity, IObserver<NoiseData>
     public void AddCoins(int amount) => Coins += amount;
     public void AddGold(int amount) => Gold += amount;
     private readonly List<IInventoryItem> _backpack = new();
-    
+
     /// <summary>
     /// Exposes a read-only view of the inventory to prevent external mutation of the domain state.
     /// </summary>

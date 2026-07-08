@@ -19,7 +19,7 @@ public class NetworkServer : IDisposable
 {
     private readonly StateMapper _stateMapper = new();
     private readonly ICommandMapper _commandMapper = new CommandMapper();
-    
+
     // Concurrent collections for managing asynchronous client lifecycles and I/O channels
     private readonly ConcurrentDictionary<int, Task> _clientTasks = new();
     private readonly ConcurrentDictionary<int, Channel<string>> _clientChannels = new();
@@ -30,7 +30,7 @@ public class NetworkServer : IDisposable
     private readonly ILogger _logger;
     private readonly int _port;
     private readonly int _maxPlayers;
-    
+
     // A thread-safe queue containing available player IDs to recycle slots upon disconnection
     private readonly ConcurrentQueue<int> _availablePlayerIds;
 
@@ -40,10 +40,10 @@ public class NetworkServer : IDisposable
         _logger = logger;
         _port = port;
         _listener = new TcpListener(IPAddress.Any, port);
-        
+
         _maxPlayers = engine.State.Config.MaxPlayers;
         _availablePlayerIds = new ConcurrentQueue<int>(Enumerable.Range(1, _maxPlayers));
-        
+
         // Subscribe the server to the engine's state change events to trigger broadcasts
         _engine.OnStateChanged += BroadcastState;
     }
@@ -101,7 +101,7 @@ public class NetworkServer : IDisposable
                 }
 
                 _engine.RegisterNewPlayer(playerId);
-                
+
                 // Spin up an independent asynchronous task to handle this specific client's lifecycle
                 var clientTask = Task.Run(() => HandleClientAsync(client, playerId));
                 _clientTasks.TryAdd(playerId, clientTask);

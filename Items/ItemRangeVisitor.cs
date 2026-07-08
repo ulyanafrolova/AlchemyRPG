@@ -1,5 +1,11 @@
 namespace AlchemyRPG;
 
+/// <summary>
+/// Provides an item visitor that determines the range value for various item types.
+/// </summary>
+/// <remarks>This visitor returns the range of weapon items by accessing their Range property. For non-weapon
+/// items, it returns a default range value of 1. This class is typically used to abstract the logic of retrieving range
+/// values from different item implementations.</remarks>
 public class ItemRangeVisitor : IItemVisitor<int>
 {
     public int VisitHeavyWeapon(IHeavyWeapon weapon) => weapon.Range;

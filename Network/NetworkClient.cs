@@ -18,7 +18,7 @@ public class NetworkClient
     private readonly CancellationTokenSource _cts = new();
     private readonly string _ip;
     private readonly int _port;
-    
+
     // Callbacks to bridge the network layer with the local state container and view
     private readonly Action<GameStateDTO> _onStateReceived;
     private readonly Action<string, string> _onError;
@@ -28,7 +28,7 @@ public class NetworkClient
     /// A thread-safe, unbounded channel acting as a queue for outbound command messages.
     /// Ensures that UI interactions do not block waiting for network I/O.
     /// </summary>
-    private readonly Channel<string> _sendChannel = 
+    private readonly Channel<string> _sendChannel =
         Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleWriter = true });
 
     public NetworkClient(string ip, int port, Action<InitialDataDTO> onInitReceived, Action<GameStateDTO> onStateReceived, Action<string, string> onError)

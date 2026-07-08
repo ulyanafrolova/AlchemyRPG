@@ -49,7 +49,7 @@ public class OpenJournalAction : IClientAction
         if (snapshot != null)
             view.RenderJournal(snapshot.FullJournal);
     }
-}   
+}
 
 /// <summary>
 /// Displays the dynamic tutorial or help screen to the user.

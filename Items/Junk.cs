@@ -16,7 +16,7 @@ public abstract class Junk : IInventoryItem
     public int TotalStrength => 0;
     public int TotalWisdom => 0;
     public int TotalLuck => 0;
-    
+
     public void OnPickUp(GameState state, Player executor)
     {
         executor.AddToBackpack(this);

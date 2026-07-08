@@ -47,10 +47,10 @@ public class EquipCommandDTO : NetworkCommandDTO
 {
     /// <summary>The globally unique identifier of the target item in the client's backpack.</summary>
     public Guid ItemId { get; set; }
-    
+
     /// <summary>An integer index representing the structural hand constraint (e.g., 0 for Left, 1 for Right).</summary>
     public int HandSide { get; set; }
-    
+
     public override T Accept<T>(INetworkCommandVisitor<T> visitor) => visitor.VisitEquip(this);
 }
 
@@ -61,7 +61,7 @@ public class DropCommandDTO : NetworkCommandDTO
 {
     /// <summary>The globally unique identifier of the item to discard.</summary>
     public Guid ItemId { get; set; }
-    
+
     public override T Accept<T>(INetworkCommandVisitor<T> visitor) => visitor.VisitDrop(this);
 }
 
@@ -80,10 +80,10 @@ public class InsertCommandDTO : NetworkCommandDTO
 {
     /// <summary>The identifier of the item intended to act as the modifier.</summary>
     public Guid ItemIdToInsert { get; set; }
-    
+
     /// <summary>The identifier of the root container accepting the modifier.</summary>
     public Guid TargetContainerId { get; set; }
-    
+
     public override T Accept<T>(INetworkCommandVisitor<T> visitor) => visitor.VisitInsert(this);
 }
 
@@ -110,7 +110,7 @@ public class StealthAttackCommandDTO : NetworkCommandDTO
 /// <summary>
 /// A payload transmitting a request to initiate wisdom-weighted, armor-piercing combat calculations.
 /// </summary>
-public class MagicAttackCommandDTO : NetworkCommandDTO 
+public class MagicAttackCommandDTO : NetworkCommandDTO
 {
     public int TargetX { get; set; }
     public int TargetY { get; set; }

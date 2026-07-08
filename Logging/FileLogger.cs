@@ -14,13 +14,13 @@ public class FileLogger : ILogger, IDisposable
     private readonly Queue<LogEntry> _memoryBuffer = new();
     private readonly int _maxBufferSize = 100;
     private readonly StreamWriter _fileWriter;
-    
+
     // Dedicated lock object for the memory buffer to prevent deadlocks with the file writer.
     private readonly object _syncRoot = new();
 
     /// <summary>Gets the absolute path to the active log file on disk.</summary>
     public string SavedFilePath { get; }
-    
+
     public string? GetLogFilePath() => SavedFilePath;
 
     /// <summary>
@@ -46,7 +46,7 @@ public class FileLogger : ILogger, IDisposable
     public void Log(LogType type, string message)
     {
         var entry = new LogEntry(type, message);
-        
+
         lock (_syncRoot)
         {
             if (_memoryBuffer.Count >= _maxBufferSize)

@@ -52,7 +52,7 @@ public class Subject<T> : ISubject<T>
     /// Ensures that reads during the Notify phase do not require a lock.
     /// </summary>
     private volatile IReadOnlyList<IObserver<T>> _observers = new List<IObserver<T>>();
-    
+
     /// <summary>
     /// A dedicated synchronization root for safely modifying the observer list.
     /// </summary>
@@ -69,7 +69,7 @@ public class Subject<T> : ISubject<T>
             var updated = new List<IObserver<T>>(_observers);
             if (!updated.Contains(observer))
                 updated.Add(observer);
-            
+
             // Atomic pointer swap
             _observers = updated;
         }
@@ -85,7 +85,7 @@ public class Subject<T> : ISubject<T>
         {
             var updated = new List<IObserver<T>>(_observers);
             updated.Remove(observer);
-            
+
             // Atomic pointer swap
             _observers = updated;
         }

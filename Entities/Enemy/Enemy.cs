@@ -18,25 +18,25 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
     // Cardinal direction vectors (Up, Down, Left, Right) used for grid-based spatial calculations.
     private static readonly int[] Dx = { 0, 0, -1, 1 };
     private static readonly int[] Dy = { -1, 1, 0, 0 };
-    
+
     /// <summary>
     /// The default temperament of the enemy to which it reverts when no active stimuli are present.
     /// </summary>
     private IEnemyState _baseState;
-    
+
     private readonly ISubject<SystemLogData> _systemLogs;
     private readonly IKinsmanDeathBehavior _deathBehavior;
-    
+
     // Event bus subscriptions. Tracked internally to ensure safe disposal upon entity death.
     private readonly ISubject<NoiseData> _noiseEvents;
     private readonly ISubject<EnemyDeathData> _deathEvents;
     private readonly ISubject<EnemyHeardNoiseData> _heardNoiseEvents;
 
     public string Species { get; }
-    
+
     private readonly int _baseAttackDamage;
     private int _attackDamageModifier = 0;
-    
+
     /// <summary>
     /// Gets the dynamically calculated combat damage, ensuring it never drops below zero.
     /// </summary>
@@ -44,7 +44,7 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
     public int Armor { get; }
 
     public int MaxHealth { get; }
-    
+
     /// <summary>
     /// A localized spatial memory of the last acoustic stimulus.
     /// </summary>
@@ -52,7 +52,7 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
 
     public void HearNoise(int x, int y) => _lastHeardNoise = (x, y);
     public void ForgetNoise() => _lastHeardNoise = null;
-    
+
     private IEnemyState _currentState;
 
     /// <summary>
@@ -130,7 +130,7 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
     {
         if (IsDead) return;
         bool wasDead = IsDead;
-        
+
         base.TakeDamage(amount, source);
 
         if (!IsDead)
@@ -221,7 +221,7 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
                 validMoves.Add((nx, ny, distToTarget));
             }
         }
-        
+
         var bestMoves = validMoves.OrderByDescending(m => m.dist).ToList();
 
         if (bestMoves.Count > 0)
@@ -244,7 +244,7 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
     {
         int nx = X + dx;
         int ny = Y + dy;
-        
+
         if (state.Map.IsWalkable(nx, ny) && !state.GetAllActivePlayers().Any(p => p.X == nx && p.Y == ny))
         {
             Teleport(nx, ny, state.Map);
@@ -266,10 +266,10 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
     {
         int damage = Math.Max(0, AttackDamage - player.Dexterity);
         player.TakeDamage(damage, this);
-        
+
         state.SystemLogs.Notify(new SystemLogData(LogType.Combat, $"{Name} hit {player.Name} for {damage} dmg!"));
         state.EventLog.Push($"{Name} bit {player.Name} for {damage}!");
-        
+
         if (player.IsDead)
         {
             state.SystemLogs.Notify(new SystemLogData(LogType.System, $"{player.Name} was killed by {Name}."));
@@ -281,7 +281,7 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
     {
         _attackDamageModifier += delta;
     }
-    
+
     /// <summary>
     /// Invoked structurally when any enemy dies within the domain. 
     /// Delegates logic to the strategy behavior if the deceased shares the same species.
@@ -301,7 +301,7 @@ public class Enemy : Entity, IObserver<NoiseData>, IObserver<EnemyDeathData>
         _deathEvents.Unsubscribe(this);
         _deathEvents.Notify(new EnemyDeathData(Species));
     }
-    
+
     public override void Accept(IEntityVisitor visitor) => visitor.VisitEnemy(this);
 
     /// <summary>

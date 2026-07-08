@@ -35,7 +35,7 @@ public static class StateFactory
         }
 
         IThemeFactory activeTheme = createTheme();
-        
+
         // Initialize event buses (Subject/Observer pattern)
         ISubject<NoiseData> noiseEvents = new Subject<NoiseData>();
         ISubject<EnemyDeathData> deathEvents = new Subject<EnemyDeathData>();
@@ -50,7 +50,7 @@ public static class StateFactory
             heardNoiseEvents,
             tempSystemLogs
         );
-        
+
         Map generatedMap = builder.GetMap();
 
         var state = new GameState
@@ -84,7 +84,7 @@ public static class StateFactory
         heardNoiseEvents.Subscribe(eventLogger);
         playerHeardNoiseEvents.Subscribe(eventLogger);
         tempSystemLogs.Subscribe(eventLogger);
-        
+
         var uiObserver = new PlayerUIFeedbackObserver(state.Players);
         playerHeardNoiseEvents.Subscribe(uiObserver);
 

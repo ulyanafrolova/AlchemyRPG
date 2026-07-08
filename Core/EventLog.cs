@@ -51,9 +51,9 @@ public class EventLog
     /// <returns>A list containing the current log entries.</returns>
     public IReadOnlyList<string> GetRecent()
     {
-        lock (_lock) 
-        { 
-            return _entries.ToList(); 
+        lock (_lock)
+        {
+            return _entries.ToList();
         }
     }
 }

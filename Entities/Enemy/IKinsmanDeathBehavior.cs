@@ -45,8 +45,8 @@ public class AggressiveBehavior : IKinsmanDeathBehavior
 /// </summary>
 public class NeutralBehavior : IKinsmanDeathBehavior
 {
-    public void React(Enemy enemy, ISubject<SystemLogData> systemLogs) 
-    { 
+    public void React(Enemy enemy, ISubject<SystemLogData> systemLogs)
+    {
         // No reaction; enemy remains unchanged.
     }
 }

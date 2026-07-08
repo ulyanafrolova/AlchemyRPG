@@ -4,6 +4,13 @@ using System.Linq;
 
 namespace AlchemyRPG;
 
+/// <summary>
+/// Represents a non-weapon inventory item that provides passive attribute bonuses when held or equipped.
+/// </summary>
+/// <remarks>PassiveItem serves as a base class for items that do not require active use or equipping in both
+/// hands. Derived classes define specific attribute bonuses and item names. Passive items are typically added to a
+/// player's backpack and can be equipped to provide their effects. This class implements IInventoryItem and provides
+/// default implementations for common inventory behaviors.</remarks>
 public abstract class PassiveItem : IInventoryItem
 {
     public abstract string Name { get; }

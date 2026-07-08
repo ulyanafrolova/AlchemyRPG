@@ -55,9 +55,9 @@ public abstract class WeaponDecorator : IWeapon
     /// </summary>
     public void Equip(Player player, IEquipSlot slot)
     {
-        if (IsTwoHanded) 
+        if (IsTwoHanded)
             new TwoHandedSlot().Equip(this, player);
-        else 
+        else
             slot.Equip(this, player);
     }
 
