@@ -39,17 +39,17 @@ public class DropCommand : ICommand
     public void Execute(GameState state, Player executor)
     {
         var droppedItem = executor.DropItem(_itemId);
-        
+
         if (droppedItem != null)
         {
             state.Map.PlaceItemAt(executor.X, executor.Y, droppedItem);
-            
+
             state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"{executor.Name} dropped: {droppedItem.Name}"));
             state.EventLog.Push($"{executor.Name} dropped: {droppedItem.Name}");
-            
+
             // Calculate potential noise using the Visitor pattern
             int noiseRange = droppedItem.Accept(new ItemNoiseVisitor());
-            
+
             if (noiseRange > 0)
             {
                 state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"Noise generated: {noiseRange}"));

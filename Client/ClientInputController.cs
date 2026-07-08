@@ -128,7 +128,7 @@ public class WaitingForEquipHandState : IInputState
 
         int handSide = key switch
         {
-            Keybinds.EquipLeft => 0, 
+            Keybinds.EquipLeft => 0,
             Keybinds.EquipRight => 1,
             _ => -1
         };

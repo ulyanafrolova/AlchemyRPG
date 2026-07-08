@@ -32,7 +32,7 @@ public class ClientStateContainer
     /// <summary>
     /// Gets a value indicating whether a fatal error has occurred and is currently stored in the container.
     /// </summary>
-    public bool HasError 
+    public bool HasError
     {
         get { lock (_lock) return _errorTitle != null; }
     }

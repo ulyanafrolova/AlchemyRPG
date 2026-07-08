@@ -1,11 +1,6 @@
 namespace AlchemyRPG;
 
 /// <summary>
-/// Specifies the physical hand used to equip an item.
-/// </summary>
-public enum HandSide { Left, Right }
-
-/// <summary>
 /// Defines the base contract for any object that can be placed on the game map and interacted with.
 /// </summary>
 public interface IItem

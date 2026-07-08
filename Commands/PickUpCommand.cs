@@ -29,7 +29,7 @@ public class PickUpCommand : ICommand
     public void Execute(GameState state, Player executor)
     {
         var items = state.Map.GetItemsAt(executor.X, executor.Y);
-        
+
         if (items.Count > 0)
         {
             var item = items.Last();
@@ -40,7 +40,7 @@ public class PickUpCommand : ICommand
 
             // Calculate noise range using the Visitor pattern to determine the sound propagation distance
             int noiseRange = item.Accept(new ItemNoiseVisitor());
-            
+
             if (noiseRange > 0)
             {
                 state.SystemLogs.Notify(new SystemLogData(LogType.Loot, $"Noise generated: {noiseRange}"));
