@@ -1,387 +1,74 @@
-````mermaid
-classDiagram
-    %% --- CORE GAME ---
-    class Game {
-        -GameState _state
-        -bool _isRunning
-        -InputHandler _inputHandler
-        +Run()
-    }
+AlchemyRPG is a multiplayer, authoritative-server roguelike RPG built in C# (.NET 9.0). It features procedural dungeon generation, a deeply decoupled event-driven architecture, and terminal-based rendering. The system is designed with a strong emphasis on strict Object-Oriented Programming (OOP) standards and Gang of Four (GoF) design patterns to ensure extensibility and maintainability.
 
-    class GameConfig {
-        +string PlayerName
-        +string DungeonTheme
-        +string LogDirectory
-        +Load(string path)$ GameConfig
-    }
+## Tech Stack & Core Technologies
 
-    class GameState {
-        +Player Player
-        +Map Map
-        +string Log
-        +string Instructions
-        +string TutorialText
-        +bool IsGameOver
-        +EventManager Events
-    }
+* **Platform:** .NET 9.0 (C#)
+* **Networking:** Asynchronous TCP Sockets (`System.Net.Sockets`) with non-blocking message queues (`System.Threading.Channels`).
+* **Serialization:** Polymorphic JSON serialization (`System.Text.Json`) utilizing type discriminators for seamless DTO payload resolution over the network.
+* **Concurrency:** Thread-safe state mutation via `ConcurrentDictionary`, `ConcurrentQueue`, and explicit locking mechanisms (`SyncRoot`) to prevent race conditions during server ticks.
 
-    class Map {
-        +int Width
-        +int Height
-        +char[,] Grid
-        -List~IItem~ _items
-        +List~Enemy~ Enemies
-        +bool IsWalkable(int x, int y)
-        +List~IItem~ GetItemsAt(int x, int y)
-        +Enemy GetEnemyAt(int x, int y)
-        +void PlaceItemAt(int x, int y, IItem item)
-        +void AddItem(int x, int y, IItem item)
-        +void RemoveItem(int x, int y, IItem item)
-        +void Draw(GameState state)
-        -char GetSymbolToDraw(GameState state, int x, int y)
-    }
+## Architecture & OOP Principles
 
-    class MapExtensions {
-        <<static>>
-        +void SpawnItemRandomly(this Map map, Random rand, IItem item)$
-        +void SpawnEnemyRandomly(this Map map, Random rand, Enemy enemy)$
-    }
+The project adheres strictly to **SOLID** principles:
+* **Single Responsibility Principle (SRP):** Complete separation between Domain state (`GameState`), Network transportation (`NetworkServer`/`NetworkClient`), and UI rendering (`ConsoleView`).
+* **Open/Closed Principle (OCP):** Core systems (combat, item interactions, map generation) rely on abstractions. New items, weapons, or dungeon themes can be added without modifying existing engine logic.
+* **Liskov Substitution Principle (LSP):** Base classes (`Entity`, `BaseWeapon`) are seamlessly interchangeable with their derived counterparts.
+* **Interface Segregation Principle (ISP):** Interfaces like `IHeavyWeapon`, `ISlottedWeapon`, and `IKinsmanDeathBehavior` ensure highly specific contracts.
+* **Dependency Inversion Principle (DIP):** High-level modules depend on abstractions (e.g., `GameEngine` depends on `ILogger` and `IVisionService`, not concrete implementations).
 
-    %% --- EVENT SYSTEM (Observer Pattern) ---
-    class EventManager {
-        -Dictionary~Type, List~object~~ _listeners
-        +Subscribe~TEvent~(IEventListener~TEvent~ listener)
-        +Unsubscribe~TEvent~(IEventListener~TEvent~ listener)
-        +Notify~TEvent~(TEvent eventData)
-    }
+## Design Patterns Applied
 
-    class IEventListener~TEvent~ {
-        <<interface>>
-        +OnEvent(TEvent eventData)
-    }
+The codebase heavily utilizes GoF design patterns to solve architectural challenges intuitively and data-drivenly:
 
-    class INoiseListener {
-        <<interface>>
-    }
+* **Visitor:** Used in `IItemVisitor`, `IAttackVisitor`, and `INetworkCommandVisitor`. 
+    * *Purpose:* Eliminates fragile runtime type-checking (`is`/`as`) and massive `switch` statements. It leverages double dispatch to dynamically resolve combat calculations based on weapon categories, determine item drop noise, and route deserialized network DTOs to the correct execution pipeline.
+* **Builder & Director:** Implemented via `IDungeonBuilder`, `DungeonDirector`, and `IDungeonModifier`.
+    * *Purpose:* Orchestrates procedural map generation. The Director controls the pipeline, while modular modifiers (e.g., `RoomsModifier`, `CorridorsModifier`) independently mutate the grid, allowing for highly composable map algorithms.
+* **Abstract Factory:** Implemented via `IThemeFactory` (`CrystalMineThemeFactory`, `LaboratoryThemeFactory`, etc.).
+    * *Purpose:* Encapsulates the instantiation of biome-specific entities, loot, and artifacts, ensuring thematic consistency without hardcoding dependencies in the dungeon generator.
+* **State:** Used in client input handling (`IInputState`) and enemy AI (`IEnemyState`).
+    * *Purpose:* Replaces complex conditional logic. Input flows smoothly transition between states (e.g., `NormalState` -> `WaitingForAttackDirectionState` -> `WaitingForAttackTypeState`). AI state shifts dynamically based on spatial awareness (Aggressive, Cowardly).
+* **Strategy:** Implemented via `IKinsmanDeathBehavior`.
+    * *Purpose:* Defines interchangeable behavioral algorithms for enemies. For example, when a kinsman dies, enemies dynamically evaluate morale, resulting in either a buff (`AggressiveBehavior`) or debuff (`CowardlyBehavior`).
+* **Observer:** Implemented via generic `ISubject<T>` and `IObserver<T>`.
+    * *Purpose:* Decouples domain events (like `NoiseData` and `EnemyDeathData`) from their handlers. Utilizes a lock-free, Copy-On-Write (COW) list to broadcast events across threads securely.
+* **Decorator:** Implemented via `WeaponDecorator` (`StrongModifier`, `UnluckyModifier`).
+    * *Purpose:* Allows dynamic, runtime aggregation of weapon statistics without exponential subclass explosion.
+* **Composite:** Implemented via `ISlotContainer` (`SlottedSword`, `ItemHolder`).
+    * *Purpose:* Treats individual items and containers uniformly. Calculates aggregated stats recursively across the nested item tree. Prevents cyclical graphs using domain-specific Visitors (`ContainsItemVisitor`).
+* **Command:** Implemented via `ICommand` (`MoveCommand`, `AttackCommand`, `DropCommand`).
+    * *Purpose:* Encapsulates player intent as discrete objects. Sent from the client as DTOs, mapped to executable commands on the server, and queued for processing during the authoritative server tick.
 
-    class IEnemyDeathListener {
-        <<interface>>
-    }
+## Getting Started
 
-    class NoiseData {
-        +int SourceX
-        +int SourceY
-        +Dictionary~Tuple, int~ ReachedTiles
-    }
+### Prerequisites
+* .NET 9.0 SDK
 
-    class EnemyDeathData {
-        +string Species
-    }
+### Build & Run
+Compile and start the application via the CLI. The program acts as both a headless authoritative server and a rendering client depending on the arguments.
 
-    %% --- STRATEGY PATTERN (Enemy Behavior) ---
-    class IKinsmanDeathBehavior {
-        <<interface>>
-        +React(Enemy enemy)
-    }
+**1. Start the Server:**
+```bash
+dotnet run --server=5555
 
-    class CowardlyBehavior {
-        +React(Enemy enemy)
-    }
+```
+*Alternatively, run the executable without arguments and press S.*
+**2. Start a Client:**
+```bash
+dotnet run --client=127.0.0.1:5555
 
-    class AggressiveBehavior {
-        +React(Enemy enemy)
-    }
-
-    class NeutralBehavior {
-        +React(Enemy enemy)
-    }
-
-    %% --- LOGGING SYSTEM (Singleton + Strategy) ---
-    class ILogger {
-        <<interface>>
-        +Log(LogType type, string message)
-        +GetFullMemoryBuffer() List~LogEntry~
-        +GetRecentLogs(int count) List~LogEntry~
-    }
-
-    class FileLogger {
-        -Queue~LogEntry~ _memoryBuffer
-        +Log(LogType type, string message)
-        +GetFullMemoryBuffer() List~LogEntry~
-        +GetRecentLogs(int count) List~LogEntry~
-    }
-
-    class GameLogger {
-        <<static>>
-        -ILogger _instance$
-        +Initialize(ILogger logger)$
-        +Instance$ ILogger
-    }
-
-    %% --- ENTITIES ---
-    class Entity {
-        <<abstract>>
-        +string Name
-        +char Symbol
-        +int Health
-        +int X
-        +int Y
-    }
-
-    class Player {
-        +int Strength
-        +int TotalStrength
-        +int Dexterity
-        +int Luck
-        +int TotalLuck
-        +int Aggression
-        +int Wisdom
-        +int Coins
-        +int Gold
-        +string LogMessage
-        +List~IInventoryItem~ Backpack
-        +IInventoryItem LeftHand
-        +IInventoryItem RightHand
-        +void Move(int dx, int dy)
-        +void TryEquipFromBackpack(int index, HandSide side)
-        +IInventoryItem DropItem(int index)
-        +void EquipLeftHand(IInventoryItem item)
-        +void EquipRightHand(IInventoryItem item)
-        +void EquipTwoHanded(IInventoryItem item)
-    }
-
-    class Enemy {
-        +string Species
-        +int AttackDamage
-        +int Armor
-        -IKinsmanDeathBehavior _deathBehavior
-        -EventManager _events
-        +ModifyAttackDamage(int delta)
-        +TriggerDeathProcessing()
-        +MoveRandomly(Map map, Random rand, Player player)
-        +OnEvent(NoiseData noise)
-        +OnEvent(EnemyDeathData deathInfo)
-    }
-
-    %% --- DUNGEON BUILDER & ABSTRACT FACTORY (THEMES) ---
-    class IThemeFactory {
-        <<interface>>
-        +GetWelcomeMessage() string
-        +CreateLoot(Random rand) IItem
-        +CreateArtifact() IWeapon
-        +CreateEnemy(int index, EventManager events) Enemy
-        +ConfigureBuilder(IDungeonBuilder builder)
-    }
-
-    class LaboratoryThemeFactory
-    class GreenhouseThemeFactory
-    class CrystalMineThemeFactory
-
-    class IDungeonBuilder {
-        <<interface>>
-        +CreateEmpty(int width, int height) IDungeonBuilder
-        +CreateFilled(int width, int height) IDungeonBuilder
-        +ApplyModifier(IDungeonModifier modifier) IDungeonBuilder
-        +GetMap() Map
-        +GetInstructions() string
-        +GetTutorialText() string
-    }
-
-    class DungeonBuilder {
-        -Map _map
-        -Random _rand
-        -HashSet~string~ _instructions
-        -List~string~ _tutorialText
-        -AddBorders()
-    }
-
-    class DungeonDirector {
-        -IDungeonBuilder _builder
-        +ConstructThemedDungeon(IThemeFactory themeFactory, EventManager events)
-    }
-
-    class IDungeonModifier {
-        <<interface>>
-        +Apply(Map map, HashSet~string~ controls, List~string~ tutorialText, Random rand)
-    }
-
-    class CorridorsModifier
-    class RoomsModifier
-    class CentralRoomModifier
-    class ThemePopulatorModifier {
-        -IThemeFactory _factory
-        -int _lootCount
-        -int _enemyCount
-        -EventManager _events
-    }
-
-    class Labyrinth {
-        <<static>>
-        +Generate(int width, int height)$ char[,]
-    }
-
-    %% --- COMMANDS ---
-    class ICommand {
-        <<interface>>
-        +CanExecute(GameState state) bool
-        +Execute(GameState state)
-    }
-
-    class MoveCommand {
-        -int _dx
-        -int _dy
-    }
-    class PickUpCommand
-    class DropCommand
-    class EquipCommand {
-        -int _inventoryIndex
-    }
-    class HelpCommand
-    class AttackCommand
-    class JournalCommand
-
-    class InputHandler {
-        -Dictionary~ConsoleKey, ICommand~ _commands
-        +HandleInput(ConsoleKey key, GameState state) bool
-    }
-
-    %% --- ITEMS & WEAPONS ---
-    class HandSide {
-        <<enumeration>>
-        Left
-        Right
-    }
-
-    class IItem {
-        <<interface>>
-        +string Name
-        +char Symbol
-        +void OnPickUp(GameState state)
-    }
-
-    class IInventoryItem {
-        <<interface>>
-        +bool IsTwoHanded
-        +void Equip(Player player, HandSide side)
-        +void Accept(IAttackVisitor visitor, IInventoryItem context)
-    }
-
-    class IWeapon {
-        <<interface>>
-        +int Damage
-        +int LuckBonus
-        +int NoiseRange
-    }
-
-    class BaseWeapon {
-        <<abstract>>
-    }
-
-    class WeaponDecorator {
-        <<abstract>>
-        -IWeapon _innerWeapon
-    }
-
-    class StrongModifier
-    class UnluckyModifier
-
-    %% --- VISITOR PATTERN ---
-    class IAttackVisitor {
-        <<interface>>
-        +VisitHeavyWeapon(IWeapon weapon)
-        +VisitLightWeapon(IWeapon weapon)
-        +VisitMagicWeapon(IWeapon weapon)
-        +VisitNonWeapon()
-    }
-
-    class AttackVisitor {
-        <<abstract>>
-        #int CalculatedDamage
-        #int CalculatedDefense
-        #Player _player
-    }
-
-    class NormalAttack
-    class StealthAttack
-    class MagicAttack
-
-    %% ==========================================
-    %% RELATIONSHIPS
-    %% ==========================================
-    
-    %% Core game
-    Game *-- InputHandler
-    Game *-- GameConfig
-    Game --> GameState
-    GameState --> Player
-    GameState --> Map
-    GameState *-- EventManager
-    
-    %% Events & Observer
-    IEventListener~NoiseData~ <|-- INoiseListener
-    IEventListener~EnemyDeathData~ <|-- IEnemyDeathListener
-    INoiseListener <|.. Enemy
-    IEnemyDeathListener <|.. Enemy
-    EventManager ..> NoiseData
-    EventManager ..> EnemyDeathData
-
-    %% Entity / Strategy
-    Entity <|-- Player
-    Entity <|-- Enemy
-    IKinsmanDeathBehavior <|.. CowardlyBehavior
-    IKinsmanDeathBehavior <|.. AggressiveBehavior
-    IKinsmanDeathBehavior <|.. NeutralBehavior
-    Enemy *-- IKinsmanDeathBehavior
-
-    %% Map
-    Map o-- IItem
-    Map o-- Enemy
-    MapExtensions ..> Map
-
-    %% Logging
-    ILogger <|.. FileLogger
-    GameLogger o-- ILogger
-    
-    %% Abstract Factory & Builder
-    IThemeFactory <|.. LaboratoryThemeFactory
-    IThemeFactory <|.. GreenhouseThemeFactory
-    IThemeFactory <|.. CrystalMineThemeFactory
-    DungeonDirector o-- IThemeFactory
-    DungeonDirector o-- IDungeonBuilder
-    
-    IDungeonBuilder <|.. DungeonBuilder
-    IDungeonModifier <|.. CorridorsModifier
-    IDungeonModifier <|.. RoomsModifier
-    IDungeonModifier <|.. CentralRoomModifier
-    IDungeonModifier <|.. ThemePopulatorModifier
-    DungeonBuilder ..> IDungeonModifier
-    ThemePopulatorModifier *-- IThemeFactory
-    ThemePopulatorModifier --> EventManager
-    CorridorsModifier ..> Labyrinth
-    
-    %% Commands
-    ICommand <|.. MoveCommand
-    ICommand <|.. PickUpCommand
-    ICommand <|.. DropCommand
-    ICommand <|.. EquipCommand
-    ICommand <|.. HelpCommand
-    ICommand <|.. AttackCommand
-    ICommand <|.. JournalCommand
-    InputHandler *-- ICommand
-    PickUpCommand ..> NoiseData
-
-    %% Items
-    Player o-- IInventoryItem
-    IItem <|-- IInventoryItem
-    IInventoryItem <|.. BaseWeapon
-    IWeapon <|.. BaseWeapon
-    IWeapon <|.. WeaponDecorator
-    WeaponDecorator <|-- StrongModifier
-    WeaponDecorator <|-- UnluckyModifier
-
-    %% Visitor
-    IAttackVisitor <|.. AttackVisitor
-    AttackVisitor <|-- NormalAttack
-    AttackVisitor <|-- StealthAttack
-    AttackVisitor <|-- MagicAttack
-    AttackCommand --> AttackVisitor
+```
+*Alternatively, run the executable without arguments, press C, and enter the IP:Port.*
+## Gameplay & Controls
+The game operates on a real-time, tick-based authoritative server logic. Vision is calculated via raycasting, and sound propagation utilizes Breadth-First Search (BFS) distance calculations.
+### Core Keybinds
+ * W, A, S, D — Movement.
+ * E — Pick up item from the ground.
+ * X — Drop an item from inventory.
+ * 0-9 — Interact with an inventory slot (equip/drop/insert).
+ * Q / R — Specify Left or Right hand during equip operations.
+ * C — Initiate an attack sequence (followed by direction W/A/S/D, then type 1/2/3).
+ * I — Insert an item into a slotted container.
+ * J — Open Adventure Journal.
+ * H — View Dungeon Instructions & Lore.
+ * Esc — Cancel current multi-step action.
