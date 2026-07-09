@@ -59,8 +59,10 @@ dotnet run --client=127.0.0.1:5555
 
 ```
 *Alternatively, run the executable without arguments, press C, and enter the IP:Port.*
-## Gameplay & Controls
+
+## Controls
 The game operates on a real-time, tick-based authoritative server logic. Vision is calculated via raycasting, and sound propagation utilizes Breadth-First Search (BFS) distance calculations.
+
 ### Core Keybinds
  * W, A, S, D — Movement.
  * E — Pick up item from the ground.
@@ -72,3 +74,34 @@ The game operates on a real-time, tick-based authoritative server logic. Vision 
  * J — Open Adventure Journal.
  * H — View Dungeon Instructions & Lore.
  * Esc — Cancel current multi-step action.
+
+## Game Rules & Mechanics
+
+The game revolves around exploring a procedurally generated, themed dungeon (Crystal Mine, Laboratory, or Greenhouse) where you must survive, fight enemies, and gather loot. The game operates on a turn-based system where every player action is processed during the server tick.
+
+### The Goal & Game Over
+* **Survival:** Your primary objective is to survive the dungeon.
+* **Defeat:** The game ends for you (GAME OVER) if your health drops to 0 or below during combat. When this happens, a fatal error screen will appear stating: "You have been slain in the dungeon. Your journey ends here."
+
+### Items & Equipment
+The dungeon is filled with various items that you can pick up and store in your backpack:
+* **Weapons:** Different weapons scale with different RPG statistics. 
+  * *Heavy Weapons* (e.g., Swords, Axes) scale with Strength and Aggression.
+  * *Light Weapons* (e.g., Daggers) scale with Dexterity.
+  * *Magic Weapons* (e.g., Magic Staff) bypass physical armor and scale with Wisdom.
+* **Slotted Items & Modifiers:** Some weapons and holders (like the `Slotted Broadsword`) act as containers. You can insert passive items (like the Stone of Strength, Wisdom, or Luck) into them to permanently boost your stats.
+* **Currency:** Gold and Coins do not take up inventory space; they are instantly consumed upon pickup and added to your statistics.
+* **Junk:** Items like Skulls, Old Bones, and Broken Glass are useless items that simply take up valuable backpack space.
+
+### Combat System
+Combat is strictly melee (limited to adjacent tiles). You can choose between three attack styles:
+* **Normal Attack:** Standard damage scaling. Good for heavy and light weapons.
+* **Stealth Attack:** Deals massive double damage with light weapons but halves the effectiveness of heavy weapons.
+* **Magic Attack:** Extremely effective with magic weapons, but renders physical weapons almost useless (reducing damage to 1).
+
+### Enemy AI & Ecology
+Enemies are highly dynamic and react to both sight and sound (acoustic events like dropping heavy items or combat):
+* **Aggressive Enemies** (e.g., Gargoyles, Flesh Golems): If they see you, they will chase and attack. If they hear a noise, they will investigate the source.
+* **Cowardly Enemies** (e.g., Basilisks, Acid Slimes): They will actively try to move away from players and noises. If they are cornered (surrounded by 4 players), they will freeze in fear.
+* **Neutral Enemies:** They wander randomly until provoked. If attacked, their reaction depends on their health: they become *Enraged* (Aggressive) if their HP is >= 50%, or *Panicked* (Cowardly) if their HP falls below 50%.
+* **Pack Mentality:** When an enemy dies, it broadcasts a death event to others of its species. Depending on their behavior, witnessing a kinsman's death might make them enraged (+3 damage) or cowardly (-2 damage).
