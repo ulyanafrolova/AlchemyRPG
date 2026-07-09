@@ -1,3 +1,7 @@
+## Game Preview
+
+<img width="809" height="383" alt="Screenshot 2026-07-09 at 13 33 00" src="https://github.com/user-attachments/assets/09d50e22-8ae3-4d6e-b53c-771ca1337f92" />
+
 AlchemyRPG is a multiplayer, authoritative-server roguelike RPG built in C# (.NET 9.0). It features procedural dungeon generation, a deeply decoupled event-driven architecture, and terminal-based rendering. The system is designed with a strong emphasis on strict Object-Oriented Programming (OOP) standards and Gang of Four (GoF) design patterns to ensure extensibility and maintainability.
 
 ## Tech Stack & Core Technologies
